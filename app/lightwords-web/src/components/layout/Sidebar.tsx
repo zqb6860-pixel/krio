@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { clsx } from 'clsx';
+import { useAuth } from '@/contexts/AuthContext';
 
 const navItems = [
   { href: '/', label: '首页', icon: '🏠', desc: '仪表盘' },
@@ -14,6 +15,7 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { user } = useAuth();
 
   return (
     <aside className="w-64 bg-white border-r border-slate-200 flex flex-col">
@@ -33,7 +35,7 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-1">
         {navItems.map((item) => {
-          const isActive = pathname === item.href || 
+          const isActive = pathname === item.href ||
             (item.href !== '/' && pathname.startsWith(item.href));
           return (
             <Link
@@ -65,11 +67,11 @@ export function Sidebar() {
       <div className="p-4 border-t border-slate-100">
         <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
           <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center text-white text-sm font-bold">
-            U
+            {user?.username?.charAt(0)?.toUpperCase() || 'U'}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-slate-700 truncate">用户</p>
-            <p className="text-xs text-slate-400">Lv.5 学习达人</p>
+            <p className="text-sm font-medium text-slate-700 truncate">{user?.username || '用户'}</p>
+            <p className="text-xs text-slate-400">Lv.{user?.level || 1}</p>
           </div>
         </div>
       </div>
