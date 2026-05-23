@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "LightWords 简词",
+    "slug": "lightwords",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#3b82f6",
+      "resizeMode": "contain"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.lightwords.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#3b82f6"
+      },
+      "package": "com.lightwords.app"
+    },
+    "scheme": "lightwords",
+    "plugins": ["expo-router"]
+  }
+}

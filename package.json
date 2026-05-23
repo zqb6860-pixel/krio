@@ -1,0 +1,17 @@
+{
+  "name": "lightwords",
+  "version": "1.0.0",
+  "private": true,
+  "description": "LightWords / 简词 - 英语学习App",
+  "workspaces": [
+    "shared",
+    "app/lightwords-web",
+    "app/lightwords-app"
+  ],
+  "scripts": {
+    "web:dev": "npm run dev --workspace=app/lightwords-web",
+    "web:build": "npm run build --workspace=app/lightwords-web",
+    "app:start": "npm run start --workspace=app/lightwords-app",
+    "shared:build": "npm run build --workspace=shared"
+  }
+}
