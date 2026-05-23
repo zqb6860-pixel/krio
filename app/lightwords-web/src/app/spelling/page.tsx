@@ -40,6 +40,7 @@ export default function SpellingPage() {
   const [shakeAnimation, setShakeAnimation] = useState(false);
   const [wrongFlash, setWrongFlash] = useState(false);
   const [randomVisible, setRandomVisible] = useState<boolean[]>([]);
+  const [isHoveringWord, setIsHoveringWord] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const totalWords = words?.length || 0;
@@ -122,13 +123,22 @@ export default function SpellingPage() {
       const isCharCorrect = e.key.toLowerCase() === targetWord[charIndex]?.toLowerCase();
 
       if (!isCharCorrect) {
+        // Show wrong char briefly in red, then clear
+        setTypedChars(newTyped);
         setShakeAnimation(true);
         setWrongFlash(true);
         setTimeout(() => {
           setTypedChars([]);
           setShakeAnimation(false);
-        }, 500);
-        setTimeout(() => setWrongFlash(false), 800);
+          // Re-pronounce the word after clearing
+          if (word.audioUs) {
+            const audio = new Audio(word.audioUs);
+            audio.play().catch(() => speakWord(word.word));
+          } else {
+            speakWord(word.word);
+          }
+        }, 200);
+        setTimeout(() => setWrongFlash(false), 400);
         return;
       }
 
@@ -295,9 +305,13 @@ export default function SpellingPage() {
         )}
 
         {/* Word Display */}
-        <div className={`flex items-center justify-center gap-1 flex-wrap transition-all duration-300 min-h-[5rem] ${shakeAnimation ? 'animate-[headShake_0.5s_ease-in-out]' : ''}`}>
+        <div
+          className={`flex items-center justify-center gap-1 flex-wrap transition-all duration-300 min-h-[5rem] ${shakeAnimation ? 'animate-[headShake_0.2s_ease-in-out]' : ''}`}
+          onMouseEnter={() => setIsHoveringWord(true)}
+          onMouseLeave={() => setIsHoveringWord(false)}
+        >
           {mode === 'practice' ? (
-            // PRACTICE MODE: show letters with real-time feedback
+            // PRACTICE MODE: show letters directly, no underlines
             targetWord.split('').map((char: string, i: number) => {
               let status: 'pending' | 'correct' | 'wrong' | 'current' = 'pending';
               if (i < typedChars.length) {
@@ -311,7 +325,7 @@ export default function SpellingPage() {
                   className={`inline-block text-5xl font-mono font-bold transition-all duration-150 ${
                     status === 'correct' ? 'text-green-500 dark:text-green-400' :
                     status === 'wrong' ? 'text-red-500 dark:text-red-400' :
-                    status === 'current' ? 'text-blue-500 dark:text-blue-400 border-b-4 border-blue-500 dark:border-blue-400 pb-1' :
+                    status === 'current' ? 'text-blue-500 dark:text-blue-400' :
                     'text-slate-300 dark:text-slate-600'
                   }`}
                 >
@@ -325,7 +339,9 @@ export default function SpellingPage() {
               const isTyped = i < typedChars.length;
               const isCurrent = i === typedChars.length && !isWordComplete;
               let isVisible = false;
-              if (mode === 'hideVowel') {
+              if (isHoveringWord) {
+                isVisible = true; // Show all letters on hover
+              } else if (mode === 'hideVowel') {
                 isVisible = !VOWELS.has(char.toLowerCase());
               } else if (mode === 'hideConsonant') {
                 isVisible = VOWELS.has(char.toLowerCase());
