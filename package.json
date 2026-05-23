@@ -5,8 +5,7 @@
   "description": "LightWords / 简词 - 英语学习App",
   "workspaces": [
     "shared",
-    "app/lightwords-web",
-    "app/lightwords-app"
+    "app/lightwords-web"
   ],
   "scripts": {
     "web:dev": "npm run dev --workspace=app/lightwords-web",
