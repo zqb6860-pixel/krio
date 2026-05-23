@@ -327,7 +327,7 @@ export default function ReviewPage() {
           icon="🔬"
           title="深度复习"
           desc="薄弱词汇强化，含例句和词根"
-          detail={`${Math.min(allWords.filter(w => (w.record?.masteryLevel || 0) < 60).length, 15)} 个薄弱词 · 约 ${Math.min(15, allWords.length)}分钟`}
+          detail={`${Math.min(allWords.filter((w: any) => (w.record?.masteryLevel || 0) < 60).length, 15)} 个薄弱词 · 约 ${Math.min(15, allWords.length)}分钟`}
           color="from-purple-500 to-indigo-600"
           borderColor="border-purple-200"
           disabled={allWords.length === 0}
@@ -390,7 +390,7 @@ export default function ReviewPage() {
             <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
               <span className="text-sm text-slate-700">薄弱词汇</span>
               <span className="text-sm font-bold text-yellow-600">
-                {allWords.filter(w => (w.record?.masteryLevel || 0) < 40).length} 个
+                {allWords.filter((w: any) => (w.record?.masteryLevel || 0) < 40).length} 个
               </span>
             </div>
             <div className="p-4 bg-blue-50 rounded-xl">
