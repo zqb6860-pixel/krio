@@ -85,6 +85,8 @@ class ApiClient {
   getProfile() { return this.request<any>('/user/profile'); }
   updateSettings(settings: any) { return this.request<any>('/user/settings', { method: 'PATCH', body: JSON.stringify(settings) }); }
   getWeeklyStats() { return this.request<any[]>('/user/stats/weekly'); }
+  setCurrentBook(bookId: string) { return this.request<any>('/user/current-book', { method: 'PUT', body: JSON.stringify({ bookId }) }); }
+  getCurrentBook() { return this.request<any>('/user/current-book'); }
 
   // Words
   getWordBooks() { return this.request<any[]>('/words/books'); }
