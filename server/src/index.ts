@@ -8,6 +8,7 @@ import { levelRouter } from './routes/levels';
 import { achievementRouter } from './routes/achievements';
 import { userRouter } from './routes/user';
 import { checkinRouter } from './routes/checkin';
+import { importRouter } from './routes/import';
 
 export const prisma = new PrismaClient();
 
@@ -34,6 +35,7 @@ app.use('/api/learning', learningRouter);
 app.use('/api/levels', levelRouter);
 app.use('/api/achievements', achievementRouter);
 app.use('/api/checkin', checkinRouter);
+app.use('/api/import', importRouter);
 
 // Error handler
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
