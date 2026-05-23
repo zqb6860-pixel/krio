@@ -13,7 +13,7 @@ RUN sed -i 's/provider = "sqlite"/provider = "postgresql"/' prisma/schema.prisma
 ENV DATABASE_URL="postgresql://postgres:postgres@db:5432/lightwords?schema=public"
 RUN npx prisma generate
 
-COPY tsconfig.json ./
+COPY tsconfig.docker.json ./tsconfig.json
 COPY src ./src/
 COPY data ./data/
 RUN npx tsc
