@@ -8,6 +8,18 @@ import { AudioButton } from '@/components/common/AudioButton';
 type Mode = 'practice' | 'hideAll' | 'hideVowel' | 'hideConsonant' | 'randomHide';
 const VOWELS = new Set(['a', 'e', 'i', 'o', 'u']);
 
+function speakWord(text: string) {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'en-US';
+  utterance.rate = 0.85;
+  const voices = window.speechSynthesis.getVoices();
+  const enVoice = voices.find(v => v.lang.startsWith('en-US')) || voices.find(v => v.lang.startsWith('en'));
+  if (enVoice) utterance.voice = enVoice;
+  window.speechSynthesis.speak(utterance);
+}
+
 export default function SpellingPage() {
   const { data: words, loading } = useApi(() => api.getTodayWords(), []);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -41,7 +53,7 @@ export default function SpellingPage() {
     containerRef.current?.focus();
   }, [currentIndex, isWordComplete]);
 
-  // Reset word state when index changes
+  // Reset word state when index changes + auto pronounce
   useEffect(() => {
     setTypedChars([]);
     setIsWordComplete(false);
@@ -52,6 +64,20 @@ export default function SpellingPage() {
     // Generate random visibility for randomHide mode
     if (targetWord) {
       setRandomVisible(targetWord.split('').map(() => Math.random() > 0.4));
+    }
+    // Auto pronounce the word when it appears
+    if (word?.word) {
+      setTimeout(() => {
+        if (word.audioUs) {
+          const audio = new Audio(word.audioUs);
+          audio.play().catch(() => {
+            // Fallback to TTS if audio fails
+            speakWord(word.word);
+          });
+        } else {
+          speakWord(word.word);
+        }
+      }, 300);
     }
   }, [currentIndex, targetWord]);
 
