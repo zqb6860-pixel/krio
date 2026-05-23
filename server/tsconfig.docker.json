@@ -13,6 +13,6 @@
     "resolveJsonModule": true,
     "sourceMap": true
   },
-  "include": ["src/**/*", "data/**/*"],
+  "include": ["src/**/*", "data/**/*", "prisma/**/*"],
   "exclude": ["node_modules", "dist"]
 }
