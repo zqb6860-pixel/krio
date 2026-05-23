@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from 'react';
 import { api } from '@/lib/api';
 import { useApi } from '@/hooks/useApi';
 import { useAuth } from '@/contexts/AuthContext';
+import { AudioButton } from '@/components/common/AudioButton';
 
 export default function LearnPage() {
   const { refreshUser } = useAuth();
@@ -139,7 +140,7 @@ export default function LearnPage() {
               <h2 className="text-3xl font-bold">{word.word}</h2>
               <p className="text-blue-100 mt-1">{word.phonetic || word.phoneticUs || ''}</p>
             </div>
-            <button className="p-3 bg-white/20 rounded-xl hover:bg-white/30 transition-colors">🔊</button>
+            <AudioButton audioUrl={word.audioUs} word={word.word} size="lg" variant="white" />
           </div>
         </div>
 

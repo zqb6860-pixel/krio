@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
+import { AudioButton } from '@/components/common/AudioButton';
 
 export function Header() {
   const { user } = useAuth();
@@ -51,7 +52,10 @@ export function Header() {
                 <div key={word.id} className="p-3 hover:bg-slate-50 border-b border-slate-100 last:border-b-0 cursor-pointer">
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-slate-800 text-sm">{word.word}</span>
-                    <span className="text-xs text-slate-400">{word.phonetic || word.phoneticUs}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-400">{word.phonetic || word.phoneticUs}</span>
+                      <AudioButton audioUrl={word.audioUs} word={word.word} size="sm" variant="ghost" />
+                    </div>
                   </div>
                   {word.meanings?.[0] && (
                     <p className="text-xs text-slate-500 mt-0.5">

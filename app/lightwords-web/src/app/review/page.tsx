@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { api } from '@/lib/api';
 import { useApi } from '@/hooks/useApi';
+import { AudioButton } from '@/components/common/AudioButton';
 
 export default function ReviewPage() {
   const { data: reviewData, loading, error, refetch } = useApi(() => api.getReviewWords(20), []);
@@ -100,7 +101,10 @@ export default function ReviewPage() {
           onClick={!showMeaning ? handleReveal : undefined}
         >
           <h2 className="text-4xl font-bold text-slate-800 mb-2">{word?.word}</h2>
-          <p className="text-slate-400">{word?.phonetic || word?.phoneticUs}</p>
+          <div className="flex items-center gap-3">
+            <p className="text-slate-400">{word?.phonetic || word?.phoneticUs}</p>
+            <AudioButton audioUrl={word?.audioUs} word={word?.word} size="sm" variant="ghost" />
+          </div>
 
           {showMeaning ? (
             <div className="mt-6 text-center space-y-1">

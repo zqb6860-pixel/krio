@@ -12,7 +12,11 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "setup": "prisma generate && prisma db push && tsx prisma/seed.ts",
-    "import:cet4": "tsx scripts/importCET4.ts"
+    "import:cet4": "tsx scripts/importCET4.ts",
+    "import:all": "tsx scripts/importAll.ts",
+    "import:cet6": "tsx scripts/importAll.ts cet6",
+    "import:ielts": "tsx scripts/importAll.ts ielts",
+    "import:postgrad": "tsx scripts/importAll.ts postgrad"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
