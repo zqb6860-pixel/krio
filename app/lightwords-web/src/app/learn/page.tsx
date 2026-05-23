@@ -6,6 +6,42 @@ import { useApi } from '@/hooks/useApi';
 import { useAuth } from '@/contexts/AuthContext';
 import { AudioButton } from '@/components/common/AudioButton';
 
+// 生成选择题选项：从其他单词的释义中随机取3个作为干扰项
+function generateQuizOptions(words: any[], currentIndex: number): { text: string; isCorrect: boolean }[] {
+  const currentWord = words[currentIndex];
+  const correctMeaning = currentWord?.meanings?.[0]?.translation || currentWord?.meanings?.[0]?.definition || '未知';
+
+  // 从其他单词获取干扰选项
+  const otherMeanings: string[] = [];
+  for (let i = 0; i < words.length; i++) {
+    if (i === currentIndex) continue;
+    const m = words[i]?.meanings?.[0]?.translation || words[i]?.meanings?.[0]?.definition;
+    if (m && m !== correctMeaning && !otherMeanings.includes(m)) {
+      otherMeanings.push(m);
+    }
+  }
+
+  // 随机选取3个干扰项
+  const shuffled = otherMeanings.sort(() => Math.random() - 0.5);
+  const distractors = shuffled.slice(0, 3);
+
+  // 如果干扰项不够3个，补充一些通用的
+  const fallbacks = ['使变化', '承认；接受', '增加；添加', '决定；判断', '考虑；认为', '表达；表示'];
+  while (distractors.length < 3) {
+    const fb = fallbacks[distractors.length];
+    if (fb && fb !== correctMeaning) distractors.push(fb);
+    else break;
+  }
+
+  // 组合正确答案和干扰项，然后随机打乱
+  const options = [
+    { text: correctMeaning, isCorrect: true },
+    ...distractors.map(d => ({ text: d, isCorrect: false })),
+  ].sort(() => Math.random() - 0.5);
+
+  return options;
+}
+
 export default function LearnPage() {
   const { refreshUser } = useAuth();
   const { data: words, loading, error } = useApi(() => api.getTodayWords(), []);
@@ -16,10 +52,24 @@ export default function LearnPage() {
   const [submitting, setSubmitting] = useState(false);
   const [flipAnimation, setFlipAnimation] = useState(false);
   const startTimeRef = useRef<number>(Date.now());
+  // 选择题相关状态
+  const [quizOptions, setQuizOptions] = useState<{ text: string; isCorrect: boolean }[]>([]);
+  const [selectedOption, setSelectedOption] = useState<number | null>(null);
+  const [quizAnswered, setQuizAnswered] = useState(false);
 
   const totalWords = words?.length || 0;
   const currentWord = words?.[currentIndex];
 
+
+  // 每次切换单词时生成新选项
+  useEffect(() => {
+    if (words && words.length > 0) {
+      setQuizOptions(generateQuizOptions(words, currentIndex));
+      setSelectedOption(null);
+      setQuizAnswered(false);
+      startTimeRef.current = Date.now();
+    }
+  }, [currentIndex, words]);
 
   // 键盘快捷键
   useEffect(() => {
@@ -29,11 +79,23 @@ export default function LearnPage() {
         case ' ':
         case 'Enter':
           e.preventDefault();
-          if (!showAnswer) handleReveal();
+          if (quizAnswered && !showAnswer) handleReveal();
           break;
-        case '1': if (showAnswer) handleAction('unknown'); break;
-        case '2': if (showAnswer) handleAction('vague'); break;
-        case '3': if (showAnswer) handleAction('known'); break;
+        case '1':
+          if (!quizAnswered && quizOptions.length >= 1) handleQuizSelect(0);
+          else if (showAnswer) handleAction('unknown');
+          break;
+        case '2':
+          if (!quizAnswered && quizOptions.length >= 2) handleQuizSelect(1);
+          else if (showAnswer) handleAction('vague');
+          break;
+        case '3':
+          if (!quizAnswered && quizOptions.length >= 3) handleQuizSelect(2);
+          else if (showAnswer) handleAction('known');
+          break;
+        case '4':
+          if (!quizAnswered && quizOptions.length >= 4) handleQuizSelect(3);
+          break;
         case 'ArrowLeft':
           e.preventDefault();
           if (currentIndex > 0) { navigateTo(currentIndex - 1); }
@@ -46,7 +108,7 @@ export default function LearnPage() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showAnswer, currentIndex, totalWords]);
+  }, [showAnswer, currentIndex, totalWords, quizAnswered, quizOptions]);
 
   const navigateTo = (index: number) => {
     setFlipAnimation(true);
@@ -55,12 +117,29 @@ export default function LearnPage() {
       setShowAnswer(false);
       setActiveTab('context');
       setFlipAnimation(false);
+      setSelectedOption(null);
+      setQuizAnswered(false);
     }, 150);
   };
 
   const handleReveal = () => {
     startTimeRef.current = Date.now();
     setShowAnswer(true);
+  };
+
+  // 选择题选项点击处理
+  const handleQuizSelect = async (optionIndex: number) => {
+    if (quizAnswered || !currentWord) return;
+    setSelectedOption(optionIndex);
+    setQuizAnswered(true);
+    const isCorrect = quizOptions[optionIndex]?.isCorrect || false;
+    const responseTimeMs = Date.now() - startTimeRef.current;
+
+    // 记录答题结果
+    try {
+      await api.recordAnswer(currentWord.id, isCorrect, responseTimeMs);
+      if (isCorrect) setLearnedCount(c => c + 1);
+    } catch (err) { console.error('Failed to record:', err); }
   };
 
   const handleAction = useCallback(async (status: 'known' | 'vague' | 'unknown') => {
@@ -157,7 +236,7 @@ export default function LearnPage() {
             <span className="text-xs px-2 py-0.5 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-full font-medium">已学 {learnedCount}</span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-[11px] text-slate-400 hidden sm:inline">空格翻转 · 1/2/3选择 · ←→切换</span>
+            <span className="text-[11px] text-slate-400 hidden sm:inline">1/2/3/4选择 · 空格查看 · ←→切换</span>
             <span className="text-sm font-medium text-slate-600 dark:text-slate-300">{currentIndex + 1}/{totalWords}</span>
           </div>
         </div>
@@ -201,11 +280,78 @@ export default function LearnPage() {
         {/* Content */}
         <div className="p-6 space-y-4">
           {!showAnswer ? (
-            <div className="text-center py-10">
-              <p className="text-slate-400 dark:text-slate-500 text-sm mb-5">你认识这个单词吗？</p>
-              <button onClick={handleReveal} className="px-8 py-3.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl text-slate-700 dark:text-slate-200 font-medium transition-all hover:shadow-md active:scale-95">
-                点击显示释义
-              </button>
+            <div className="py-4">
+              {/* 选择题模式 */}
+              {!quizAnswered ? (
+                <div className="space-y-4">
+                  <p className="text-center text-slate-500 dark:text-slate-400 text-sm mb-2">请选择正确的释义：</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {quizOptions.map((opt, i) => (
+                      <button
+                        key={i}
+                        onClick={() => handleQuizSelect(i)}
+                        className="p-4 text-left border-2 border-slate-200 dark:border-slate-700 rounded-xl hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-all active:scale-[0.98] group"
+                      >
+                        <div className="flex items-start gap-3">
+                          <span className="flex-shrink-0 w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-sm font-bold text-slate-500 dark:text-slate-400 group-hover:bg-blue-100 dark:group-hover:bg-blue-800/30 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                            {String.fromCharCode(65 + i)}
+                          </span>
+                          <span className="text-sm text-slate-700 dark:text-slate-200 font-medium leading-relaxed">{opt.text}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-center text-[11px] text-slate-400 mt-2">按 1/2/3/4 快速选择</p>
+                </div>
+              ) : (
+                /* 答题结果反馈 */
+                <div className="space-y-4">
+                  <div className={`p-4 rounded-xl text-center ${
+                    quizOptions[selectedOption!]?.isCorrect
+                      ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/30'
+                      : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30'
+                  }`}>
+                    <span className="text-3xl">{quizOptions[selectedOption!]?.isCorrect ? '🎉' : '😅'}</span>
+                    <p className={`font-bold mt-2 ${quizOptions[selectedOption!]?.isCorrect ? 'text-green-700 dark:text-green-300' : 'text-red-600 dark:text-red-400'}`}>
+                      {quizOptions[selectedOption!]?.isCorrect ? '回答正确！' : '答错了~'}
+                    </p>
+                  </div>
+                  {/* 显示所有选项的正误 */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {quizOptions.map((opt, i) => (
+                      <div
+                        key={i}
+                        className={`p-3 rounded-xl border-2 transition-all ${
+                          opt.isCorrect
+                            ? 'border-green-400 dark:border-green-600 bg-green-50 dark:bg-green-900/20'
+                            : i === selectedOption && !opt.isCorrect
+                            ? 'border-red-400 dark:border-red-600 bg-red-50 dark:bg-red-900/20'
+                            : 'border-slate-100 dark:border-slate-700 opacity-50'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <span className={`flex-shrink-0 text-sm ${opt.isCorrect ? '✓ text-green-600' : i === selectedOption ? '✗ text-red-500' : ''}`}>
+                            {opt.isCorrect ? '✓' : i === selectedOption && !opt.isCorrect ? '✗' : ' '}
+                          </span>
+                          <span className="text-sm text-slate-700 dark:text-slate-200">{opt.text}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* 按钮：查看详情 / 下一个 */}
+                  <div className="flex gap-3 justify-center">
+                    <button onClick={handleReveal}
+                      className="px-6 py-2.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl font-medium hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors text-sm">
+                      📖 查看详细释义
+                    </button>
+                    <button onClick={() => { if (currentIndex < totalWords - 1) navigateTo(currentIndex + 1); }}
+                      disabled={currentIndex >= totalWords - 1}
+                      className="px-6 py-2.5 bg-blue-500 text-white rounded-xl font-medium hover:bg-blue-600 transition-colors text-sm disabled:opacity-40">
+                      下一个 →
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <>
@@ -253,11 +399,15 @@ export default function LearnPage() {
                       const highlighted = highlightWord(e.sentence, word?.word || '');
                       return (
                         <div key={i} className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border-l-4 border-blue-400 dark:border-blue-500 group hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${sourceTag.color}`}>
-                              {sourceTag.icon} {sourceTag.label}
-                            </span>
-                            {e.sourceYear && <span className="text-[11px] text-slate-400">{e.sourceYear}</span>}
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${sourceTag.color}`}>
+                                {sourceTag.icon} {sourceTag.label}
+                              </span>
+                              {e.sourceYear && <span className="text-[11px] text-slate-400">{e.sourceYear}</span>}
+                            </div>
+                            {/* 例句朗读按钮 */}
+                            <AudioButton audioUrl={e.audioUrl} word={e.sentence} size="sm" variant="ghost" />
                           </div>
                           <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed" dangerouslySetInnerHTML={{ __html: highlighted }} />
                           <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 border-t border-slate-200 dark:border-slate-700 pt-2">{e.translation}</p>

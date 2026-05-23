@@ -10,7 +10,7 @@ export default function SpellingPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [input, setInput] = useState('');
   const [status, setStatus] = useState<'idle' | 'correct' | 'wrong'>('idle');
-  const [showHint, setShowHint] = useState(false);
+  const [hintLevel, setHintLevel] = useState(0); // 0=无提示, 1=首字母提示, 2=例句提示
   const [correctCount, setCorrectCount] = useState(0);
   const [wrongCount, setWrongCount] = useState(0);
   const [attempts, setAttempts] = useState(0);
@@ -80,22 +80,40 @@ export default function SpellingPage() {
     }
     setInput('');
     setStatus('idle');
-    setShowHint(false);
+    setHintLevel(0);
   };
 
   const handleRetry = () => {
     setInput('');
     setStatus('idle');
-    setShowHint(false);
+    setHintLevel(0);
   };
 
   const handleSkip = () => {
     setStatus('wrong');
-    setShowHint(true);
+    setHintLevel(2);
+  };
+
+  const handleHint = () => {
+    setHintLevel(prev => Math.min(prev + 1, 2));
   };
 
   // Generate letter hint: show first letter and length
   const letterHint = word ? `${word.word[0]}${'_'.repeat(word.word.length - 1)} (${word.word.length}个字母)` : '';
+
+  // Generate sentence hint: show example sentence with target word blanked out
+  const getSentenceHint = () => {
+    const examples = word?.examples || [];
+    if (examples.length === 0) return null;
+    const example = examples[0];
+    const sentence = example.sentence || '';
+    const targetWord = word?.word || '';
+    // Replace the target word (and its variants) with underscores
+    const escaped = targetWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`\\b${escaped}\\w*\\b`, 'gi');
+    const blanked = sentence.replace(regex, (match: string) => '_'.repeat(match.length));
+    return { blanked, translation: example.translation || '', source: example.source || '' };
+  };
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -136,10 +154,34 @@ export default function SpellingPage() {
           )}
         </div>
 
-        {/* Hint */}
-        {showHint && status === 'idle' && (
-          <div className="text-center mb-4">
-            <p className="text-sm text-amber-600 font-mono">{letterHint}</p>
+        {/* Hints (multi-level) */}
+        {hintLevel > 0 && status === 'idle' && (
+          <div className="space-y-3 mb-4">
+            {/* Level 1: Letter hint */}
+            <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 rounded-xl text-center">
+              <p className="text-xs text-amber-500 mb-1">💡 字母提示</p>
+              <p className="text-base text-amber-700 dark:text-amber-300 font-mono font-bold tracking-wider">{letterHint}</p>
+            </div>
+            {/* Level 2: Sentence hint */}
+            {hintLevel >= 2 && (() => {
+              const sentenceHint = getSentenceHint();
+              if (!sentenceHint) return (
+                <div className="p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800/30 rounded-xl text-center">
+                  <p className="text-xs text-purple-500 mb-1">📝 例句提示</p>
+                  <p className="text-sm text-slate-400">暂无例句数据</p>
+                </div>
+              );
+              return (
+                <div className="p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800/30 rounded-xl">
+                  <p className="text-xs text-purple-500 mb-2">📝 例句提示（单词已隐藏）</p>
+                  <p className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed italic">
+                    &quot;{sentenceHint.blanked}&quot;
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5">{sentenceHint.translation}</p>
+                  {sentenceHint.source && <p className="text-[11px] text-slate-400 mt-1">—— {sentenceHint.source}</p>}
+                </div>
+              );
+            })()}
           </div>
         )}
 
@@ -164,9 +206,9 @@ export default function SpellingPage() {
                 className="px-8 py-3 bg-blue-500 text-white rounded-xl font-medium hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                 确认
               </button>
-              <button type="button" onClick={() => setShowHint(true)}
-                className="px-6 py-3 bg-amber-50 text-amber-600 rounded-xl font-medium hover:bg-amber-100 transition-colors">
-                提示
+              <button type="button" onClick={handleHint} disabled={hintLevel >= 2}
+                className="px-6 py-3 bg-amber-50 text-amber-600 rounded-xl font-medium hover:bg-amber-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                {hintLevel === 0 ? '💡 字母提示' : hintLevel === 1 ? '📝 例句提示' : '已全部提示'}
               </button>
               <button type="button" onClick={handleSkip}
                 className="px-6 py-3 bg-slate-100 text-slate-500 rounded-xl font-medium hover:bg-slate-200 transition-colors">
