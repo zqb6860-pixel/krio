@@ -137,8 +137,8 @@ export default function SpellingPage() {
           } else {
             speakWord(word.word);
           }
-        }, 200);
-        setTimeout(() => setWrongFlash(false), 400);
+        }, 500);
+        setTimeout(() => setWrongFlash(false), 600);
         return;
       }
 
@@ -157,36 +157,43 @@ export default function SpellingPage() {
         try { api.recordAnswer(word.id, true, responseTime); } catch {}
       }
     } else if (mode === 'practice') {
-      // === PRACTICE MODE: show each char result, allow completing full word ===
-      setTypedChars(newTyped);
-
+      // === PRACTICE MODE: show each char result, wrong = shake & clear ===
       const charIndex = newTyped.length - 1;
       const isCharCorrect = e.key.toLowerCase() === targetWord[charIndex]?.toLowerCase();
-      if (isCharCorrect) {
-        setCorrectKeystrokes(prev => prev + 1);
+
+      if (!isCharCorrect) {
+        // Show wrong char briefly in red, then clear
+        setTypedChars(newTyped);
+        setShakeAnimation(true);
+        setWrongFlash(true);
+        setTimeout(() => {
+          setTypedChars([]);
+          setShakeAnimation(false);
+          if (word.audioUs) {
+            const audio = new Audio(word.audioUs);
+            audio.play().catch(() => speakWord(word.word));
+          } else {
+            speakWord(word.word);
+          }
+        }, 500);
+        setTimeout(() => setWrongFlash(false), 600);
+        return;
       }
+
+      setTypedChars(newTyped);
+      setCorrectKeystrokes(prev => prev + 1);
 
       // Check if word is complete
       if (newTyped.length === targetWord.length) {
-        const isAllCorrect = newTyped.every((ch: string, i: number) => ch.toLowerCase() === targetWord[i]?.toLowerCase());
         setIsWordComplete(true);
-
-        if (isAllCorrect) {
-          setCorrectCount(prev => prev + 1);
-          setStreak(prev => {
-            const newStreak = prev + 1;
-            setMaxStreak(ms => Math.max(ms, newStreak));
-            return newStreak;
-          });
-          const responseTime = Date.now() - wordStartTime;
-          try { api.recordAnswer(word.id, true, responseTime); } catch {}
-        } else {
-          setWrongCount(prev => prev + 1);
-          setStreak(0);
-          setIsWordWrong(true);
-          const responseTime = Date.now() - wordStartTime;
-          try { api.recordAnswer(word.id, false, responseTime); } catch {}
-        }
+        setCorrectCount(prev => prev + 1);
+        setStreak(prev => {
+          const newStreak = prev + 1;
+          setMaxStreak(ms => Math.max(ms, newStreak));
+          return newStreak;
+        });
+        const responseTime = Date.now() - wordStartTime;
+        try { api.recordAnswer(word.id, true, responseTime); } catch {}
       }
     }
   }, [word, typedChars, targetWord, isWordComplete, wordStartTime, mode]);
