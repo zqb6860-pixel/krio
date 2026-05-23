@@ -3,24 +3,84 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
+  --foreground-rgb: 15, 23, 42;
   --background-start-rgb: 248, 250, 252;
   --background-end-rgb: 255, 255, 255;
+  --card-bg: rgba(255, 255, 255, 0.85);
+  --card-border: rgba(255, 255, 255, 0.2);
+  --accent-primary: 59, 130, 246;
+  --accent-secondary: 139, 92, 246;
+}
+
+[data-theme='dark'] {
+  --foreground-rgb: 226, 232, 240;
+  --background-start-rgb: 15, 23, 42;
+  --background-end-rgb: 30, 41, 59;
+  --card-bg: rgba(30, 41, 59, 0.85);
+  --card-border: rgba(51, 65, 85, 0.5);
+  --accent-primary: 96, 165, 250;
+  --accent-secondary: 167, 139, 250;
 }
 
 body {
   color: rgb(var(--foreground-rgb));
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Wallpaper background support */
+.app-background {
   background: linear-gradient(
-    to bottom,
+    135deg,
     rgb(var(--background-start-rgb)),
     rgb(var(--background-end-rgb))
   );
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  position: relative;
+}
+
+.app-background::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: var(--wallpaper-url, none);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  opacity: var(--wallpaper-opacity, 0);
+  z-index: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+
+.app-background > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Dark theme overrides */
+[data-theme='dark'] body {
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+}
+
+[data-theme='dark'] .glass-card {
+  background: rgba(30, 41, 59, 0.85);
+  border-color: rgba(51, 65, 85, 0.5);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme='dark'] .sidebar-bg {
+  background: #0f172a;
+  border-color: #1e293b;
 }
 
 @layer utilities {
   .glass-card {
-    @apply bg-white/80 backdrop-blur-sm border border-white/20 shadow-lg rounded-2xl;
+    @apply bg-white/85 backdrop-blur-md border border-white/20 shadow-lg rounded-2xl;
+    transition: transform 0.2s ease, box-shadow 0.3s ease;
+  }
+
+  .glass-card:hover {
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
   }
   
   .gradient-primary {
@@ -33,6 +93,31 @@ body {
   
   .gradient-warm {
     @apply bg-gradient-to-r from-orange-400 to-pink-500;
+  }
+
+  .gradient-ocean {
+    @apply bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600;
+  }
+
+  .gradient-sunset {
+    @apply bg-gradient-to-br from-orange-400 via-rose-500 to-purple-600;
+  }
+
+  .gradient-forest {
+    @apply bg-gradient-to-br from-emerald-400 via-teal-500 to-cyan-600;
+  }
+
+  .gradient-aurora {
+    @apply bg-gradient-to-br from-violet-400 via-purple-500 to-fuchsia-600;
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent;
+  }
+
+  /* Smooth page transition */
+  .page-enter {
+    animation: pageEnter 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 
@@ -54,9 +139,45 @@ body {
   to { transform: translateY(0); opacity: 1; }
 }
 
+@keyframes slideInRight {
+  from { transform: translateX(30px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 @keyframes confetti {
   0% { transform: translateY(0) rotate(0deg); opacity: 1; }
   100% { transform: translateY(-100px) rotate(720deg); opacity: 0; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
+  50% { box-shadow: 0 0 0 12px rgba(59, 130, 246, 0); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.05); opacity: 1; }
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 .animate-fadeIn {
@@ -71,6 +192,90 @@ body {
   animation: slideUp 0.4s ease-out;
 }
 
+.animate-slideInRight {
+  animation: slideInRight 0.4s ease-out;
+}
+
 .animate-confetti {
   animation: confetti 1s ease-out forwards;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+.animate-breathe {
+  animation: breathe 3s ease-in-out infinite;
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient-shift 4s ease infinite;
+}
+
+/* Stagger animations for list items */
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.1s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.2s; }
+.stagger-5 { animation-delay: 0.25s; }
+.stagger-6 { animation-delay: 0.3s; }
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
+
+[data-theme='dark'] ::-webkit-scrollbar-thumb {
+  background: rgba(71, 85, 105, 0.5);
+}
+
+/* Focus styles */
+*:focus-visible {
+  outline: 2px solid rgb(var(--accent-primary));
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Selection color */
+::selection {
+  background: rgba(var(--accent-primary), 0.2);
+}
+
+/* Card hover micro-interaction */
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.3s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme='dark'] .card-hover:hover {
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
 }
