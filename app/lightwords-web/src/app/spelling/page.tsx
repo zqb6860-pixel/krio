@@ -269,7 +269,7 @@ export default function SpellingPage() {
         )}
 
         {/* Word Display */}
-        <div className={`flex items-center justify-center gap-1 flex-wrap transition-all duration-300 ${shakeAnimation ? 'animate-[headShake_0.5s_ease-in-out]' : ''} ${wrongFlash ? 'opacity-60' : 'opacity-100'}`}>
+        <div className={`flex items-center justify-center gap-1 flex-wrap transition-all duration-300 min-h-[5rem] ${shakeAnimation ? 'animate-[headShake_0.5s_ease-in-out]' : ''}`}>
           {mode === 'practice' ? (
             // PRACTICE MODE: show letters with real-time feedback
             targetWord.split('').map((char: string, i: number) => {
@@ -294,11 +294,10 @@ export default function SpellingPage() {
               );
             })
           ) : (
-            // DICTATION MODES: hide letters based on mode
+            // DICTATION MODES: hide letters based on mode, with single underline
             targetWord.split('').map((char: string, i: number) => {
               const isTyped = i < typedChars.length;
               const isCurrent = i === typedChars.length && !isWordComplete;
-              // Determine if letter should be visible (as hint)
               let isVisible = false;
               if (mode === 'hideVowel') {
                 isVisible = !VOWELS.has(char.toLowerCase());
@@ -307,22 +306,21 @@ export default function SpellingPage() {
               } else if (mode === 'randomHide') {
                 isVisible = randomVisible[i] ?? false;
               }
-              // hideAll: isVisible stays false
 
               return (
                 <span
                   key={i}
-                  className={`inline-block text-5xl font-mono font-bold transition-all duration-150 min-w-[1.5rem] text-center ${
-                    isTyped
-                      ? 'text-green-500 dark:text-green-400'
+                  className={`inline-block text-5xl font-mono font-bold min-w-[2rem] text-center border-b-2 mx-0.5 pb-1 transition-colors duration-200 ${
+                    shakeAnimation
+                      ? 'text-red-500 dark:text-red-400 border-red-400 dark:border-red-500'
+                      : isTyped
+                      ? 'text-green-500 dark:text-green-400 border-green-400 dark:border-green-500'
                       : isCurrent
-                      ? 'text-blue-400 dark:text-blue-500 border-b-4 border-blue-400 dark:border-blue-500 pb-1'
-                      : isVisible
-                      ? 'text-slate-400 dark:text-slate-500'
-                      : 'text-slate-200 dark:text-slate-700'
+                      ? 'border-blue-500 dark:border-blue-400'
+                      : 'border-slate-300 dark:border-slate-600'
                   }`}
                 >
-                  {isTyped ? typedChars[i] : isVisible ? char : '_'}
+                  {isTyped ? typedChars[i] : isVisible ? <span className="text-slate-400 dark:text-slate-500">{char}</span> : '\u00A0'}
                 </span>
               );
             })
@@ -349,12 +347,14 @@ export default function SpellingPage() {
           </div>
         )}
 
-        {/* Wrong feedback in dictation modes (shake hint) */}
-        {mode !== 'practice' && wrongFlash && (
-          <p className="text-sm text-red-500 dark:text-red-400 animate-fadeIn font-medium">
-            ✗ 输错了，重新开始
-          </p>
-        )}
+        {/* Wrong feedback in dictation modes (fixed height to prevent layout shift) */}
+        <div className="h-6 flex items-center justify-center">
+          {mode !== 'practice' && wrongFlash && (
+            <p className="text-sm text-red-500 dark:text-red-400 animate-fadeIn font-medium">
+              ✗ 输错了，重新开始
+            </p>
+          )}
+        </div>
 
         {/* Sentence hint (shown after wrong in practice mode) */}
         {examples.length > 0 && isWordWrong && mode === 'practice' && (
