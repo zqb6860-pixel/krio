@@ -44,6 +44,7 @@ model UserSettings {
   fontSize        String  @default("medium")
   reminderTime    String?
   currentBookId   String? // 当前选择的词库ID
+  wordOrder       String  @default("sequential") // sequential | random
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

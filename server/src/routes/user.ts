@@ -49,7 +49,7 @@ userRouter.get('/profile', async (req: AuthRequest, res: Response) => {
 // PATCH /api/user/settings
 userRouter.patch('/settings', async (req: AuthRequest, res: Response) => {
   try {
-    const { dailyWordGoal, dailyTimeGoal, weeklyDaysGoal, pronunciation, theme, fontSize, reminderTime } = req.body;
+    const { dailyWordGoal, dailyTimeGoal, weeklyDaysGoal, pronunciation, theme, fontSize, reminderTime, wordOrder } = req.body;
 
     const settings = await prisma.userSettings.upsert({
       where: { userId: req.userId! },
@@ -61,11 +61,13 @@ userRouter.patch('/settings', async (req: AuthRequest, res: Response) => {
         ...(theme !== undefined && { theme }),
         ...(fontSize !== undefined && { fontSize }),
         ...(reminderTime !== undefined && { reminderTime }),
+        ...(wordOrder !== undefined && { wordOrder }),
       },
       create: {
         userId: req.userId!,
         dailyWordGoal: dailyWordGoal || 30,
         dailyTimeGoal: dailyTimeGoal || 30,
+        wordOrder: wordOrder || 'sequential',
       },
     });
 

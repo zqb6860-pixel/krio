@@ -64,6 +64,7 @@ wordRouter.get('/today', authMiddleware, async (req: AuthRequest, res: Response)
     const settings = await prisma.userSettings.findUnique({ where: { userId } });
     const dailyGoal = settings?.dailyWordGoal || 30;
     const currentBookId = settings?.currentBookId;
+    const wordOrder = settings?.wordOrder || 'sequential'; // sequential | random
 
     // Get words the user hasn't learned yet
     const existingRecords = await prisma.learningRecord.findMany({
@@ -91,9 +92,14 @@ wordRouter.get('/today', authMiddleware, async (req: AuthRequest, res: Response)
           },
         },
         orderBy: { order: 'asc' },
-        take: dailyGoal,
+        take: wordOrder === 'random' ? dailyGoal * 3 : dailyGoal,
       });
       newWords = bookWords.map((bw) => bw.word);
+
+      // If random mode, shuffle and take dailyGoal
+      if (wordOrder === 'random' && newWords.length > dailyGoal) {
+        newWords = shuffleArray(newWords).slice(0, dailyGoal);
+      }
     } else {
       // No book selected, get from all words
       newWords = await prisma.word.findMany({
@@ -107,7 +113,7 @@ wordRouter.get('/today', authMiddleware, async (req: AuthRequest, res: Response)
           examples: { take: 2 },
         },
         take: dailyGoal,
-        orderBy: { frequency: 'desc' },
+        orderBy: wordOrder === 'random' ? undefined : { frequency: 'desc' },
       });
     }
 
@@ -117,6 +123,15 @@ wordRouter.get('/today', authMiddleware, async (req: AuthRequest, res: Response)
     res.status(500).json({ error: '获取今日单词失败' });
   }
 });
+
+function shuffleArray<T>(array: T[]): T[] {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
 
 // GET /api/words/search?q=xxx
 wordRouter.get('/search', async (req: Request, res: Response) => {

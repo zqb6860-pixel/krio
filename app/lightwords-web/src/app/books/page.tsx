@@ -12,6 +12,9 @@ export default function BooksPage() {
   const { data: books, loading } = useApi(() => api.getWordBooks(), []);
   const { data: currentBookData } = useApi(() => api.getCurrentBook(), []);
   const [selecting, setSelecting] = useState<string | null>(null);
+  const [wordOrder, setWordOrder] = useState<'sequential' | 'random'>(
+    (user?.settings?.wordOrder as any) || 'sequential'
+  );
 
   const currentBookId = currentBookData?.currentBook?.id;
 
@@ -19,6 +22,7 @@ export default function BooksPage() {
     setSelecting(bookId);
     try {
       await api.setCurrentBook(bookId);
+      await api.updateSettings({ wordOrder });
       await refreshUser();
       router.push('/learn');
     } catch (err) {
@@ -58,6 +62,37 @@ export default function BooksPage() {
             </p>
           </div>
         )}
+      </div>
+
+      {/* Word Order Setting */}
+      <div className="glass-card p-5">
+        <h3 className="text-sm font-semibold text-slate-700 mb-3">📋 出词顺序</h3>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setWordOrder('sequential')}
+            className={`flex-1 p-3 rounded-xl border-2 text-center transition-all ${
+              wordOrder === 'sequential'
+                ? 'border-blue-400 bg-blue-50 text-blue-700'
+                : 'border-slate-200 text-slate-600 hover:border-slate-300'
+            }`}
+          >
+            <span className="text-lg block">📖</span>
+            <span className="text-sm font-medium block mt-1">按顺序</span>
+            <span className="text-xs text-slate-400">从前到后依次学习</span>
+          </button>
+          <button
+            onClick={() => setWordOrder('random')}
+            className={`flex-1 p-3 rounded-xl border-2 text-center transition-all ${
+              wordOrder === 'random'
+                ? 'border-blue-400 bg-blue-50 text-blue-700'
+                : 'border-slate-200 text-slate-600 hover:border-slate-300'
+            }`}
+          >
+            <span className="text-lg block">🎲</span>
+            <span className="text-sm font-medium block mt-1">随机打乱</span>
+            <span className="text-xs text-slate-400">每次随机出词</span>
+          </button>
+        </div>
       </div>
 
       {/* Book Grid */}
