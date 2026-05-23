@@ -14,6 +14,7 @@ ENV DATABASE_URL="postgresql://postgres:postgres@db:5432/lightwords?schema=publi
 RUN npx prisma generate
 
 COPY tsconfig.docker.json ./tsconfig.json
+COPY docker-entrypoint.sh ./
 COPY src ./src/
 COPY data ./data/
 RUN npx tsc
@@ -32,4 +33,7 @@ COPY --from=builder /app/data ./data
 
 EXPOSE 3001
 
-CMD ["sh", "-c", "sed -i 's/provider = \"sqlite\"/provider = \"postgresql\"/' prisma/schema.prisma && npx prisma db push --skip-generate && node dist/src/index.js"]
+COPY --from=builder /app/docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
+
+CMD ["./docker-entrypoint.sh"]
