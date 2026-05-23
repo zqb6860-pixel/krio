@@ -10,6 +10,7 @@ RUN npx prisma generate
 
 COPY tsconfig.json ./
 COPY src ./src/
+COPY data ./data/
 RUN npx tsc
 
 FROM node:20-alpine AS runner
