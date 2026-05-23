@@ -73,12 +73,7 @@ export default function SpellingPage() {
 
     if (e.key === 'Backspace') {
       e.preventDefault();
-      if (mode === 'dictation') {
-        // In dictation mode, backspace removes last char
-        setTypedChars(prev => prev.slice(0, -1));
-      } else {
-        setTypedChars(prev => prev.slice(0, -1));
-      }
+      setTypedChars(prev => prev.slice(0, -1));
       return;
     }
 
