@@ -32,4 +32,4 @@ COPY --from=builder /app/data ./data
 
 EXPOSE 3001
 
-CMD ["sh", "-c", "sed -i 's/provider = \"sqlite\"/provider = \"postgresql\"/' prisma/schema.prisma && npx prisma db push --skip-generate && node dist/src/index.js"]
+CMD ["sh", "-c", "echo 'Waiting for database...' && sleep 2 && npx prisma db push --skip-generate --accept-data-loss && echo 'Database ready!' && node dist/src/index.js"]

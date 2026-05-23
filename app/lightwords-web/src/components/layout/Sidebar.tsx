@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 
 const navItems = [
@@ -17,7 +16,6 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
   return (
@@ -65,9 +63,8 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Theme Toggle & User */}
-      <div className="p-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
-        {/* Theme toggle */}
+      {/* Theme Toggle */}
+      <div className="p-3 border-t border-slate-100 dark:border-slate-800">
         <button
           onClick={toggleTheme}
           className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
@@ -78,21 +75,6 @@ export function Sidebar() {
             <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${theme === 'dark' ? 'translate-x-4' : 'translate-x-0.5'}`} />
           </div>
         </button>
-
-        {/* User info */}
-        <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
-          <div className="w-9 h-9 bg-gradient-to-br from-purple-400 to-pink-400 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-sm">
-            {user?.username?.charAt(0)?.toUpperCase() || 'U'}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{user?.username || '用户'}</p>
-            <div className="flex items-center gap-2 text-xs text-slate-400">
-              <span>Lv.{user?.level || 1}</span>
-              <span>·</span>
-              <span className="text-orange-500">🔥{user?.streak || 0}天</span>
-            </div>
-          </div>
-        </div>
       </div>
     </aside>
   );
