@@ -5,7 +5,8 @@ import { api } from '@/lib/api';
 
 interface User {
   id: string;
-  email: string;
+  email?: string;
+  phone?: string;
   username: string;
   avatar?: string;
   level: number;
@@ -21,7 +22,10 @@ interface AuthContextType {
   isLoading: boolean;
   isLoggedIn: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loginByPhone: (phone: string, code: string) => Promise<void>;
+  loginByWechat: (code: string) => Promise<void>;
   register: (username: string, email: string, password: string) => Promise<void>;
+  registerByPhone: (phone: string, code: string, username: string, password?: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -49,8 +53,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user);
   };
 
+  const loginByPhone = async (phone: string, code: string) => {
+    const data = await api.loginByPhone(phone, code);
+    setUser(data.user);
+  };
+
+  const loginByWechat = async (code: string) => {
+    const data = await api.loginByWechat(code);
+    setUser(data.user);
+  };
+
   const register = async (username: string, email: string, password: string) => {
     const data = await api.register(username, email, password);
+    setUser(data.user);
+  };
+
+  const registerByPhone = async (phone: string, code: string, username: string, password?: string) => {
+    const data = await api.registerByPhone(phone, code, username, password);
     setUser(data.user);
   };
 
@@ -70,7 +89,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading,
       isLoggedIn: !!user,
       login,
+      loginByPhone,
+      loginByWechat,
       register,
+      registerByPhone,
       logout,
       refreshUser,
     }}>

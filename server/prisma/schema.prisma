@@ -11,9 +11,10 @@ datasource db {
 
 model User {
   id            String   @id @default(cuid())
-  email         String   @unique
+  email         String?  @unique
+  phone         String?  @unique
   username      String   @unique
-  passwordHash  String
+  passwordHash  String?
   avatar        String?
   level         Int      @default(1)
   experience    Int      @default(0)
@@ -24,6 +25,10 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  // OAuth associations
+  wechatOpenId  String?  @unique
+  wechatUnionId String?  @unique
+
   settings        UserSettings?
   learningRecords LearningRecord[]
   checkins        Checkin[]
@@ -31,6 +36,20 @@ model User {
   levelResults    LevelResult[]
 
   @@map("users")
+}
+
+// 短信验证码存储
+model SmsCode {
+  id        String   @id @default(cuid())
+  phone     String
+  code      String
+  type      String   @default("login") // login | register | bind
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([phone, code])
+  @@map("sms_codes")
 }
 
 model UserSettings {

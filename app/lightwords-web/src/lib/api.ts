@@ -81,6 +81,53 @@ class ApiClient {
     return data;
   }
 
+  // SMS Auth
+  async sendSmsCode(phone: string, type: 'login' | 'register' | 'bind' = 'login') {
+    return this.request<{ success: boolean; message: string; devCode?: string }>(
+      '/auth/sms/send', { method: 'POST', body: JSON.stringify({ phone, type }) }
+    );
+  }
+
+  async loginByPhone(phone: string, code: string) {
+    const data = await this.request<{ user: any; token: string; refreshToken: string; isNewUser?: boolean }>(
+      '/auth/sms/login', { method: 'POST', body: JSON.stringify({ phone, code }) }
+    );
+    this.setToken(data.token);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('refreshToken', data.refreshToken);
+    }
+    return data;
+  }
+
+  async registerByPhone(phone: string, code: string, username: string, password?: string) {
+    const data = await this.request<{ user: any; token: string; refreshToken: string }>(
+      '/auth/phone/register', { method: 'POST', body: JSON.stringify({ phone, code, username, password }) }
+    );
+    this.setToken(data.token);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('refreshToken', data.refreshToken);
+    }
+    return data;
+  }
+
+  // WeChat Auth
+  async getWechatQrcode() {
+    return this.request<{ configured: boolean; appId?: string; qrcodeUrl?: string; state?: string }>(
+      '/auth/wechat/qrcode'
+    );
+  }
+
+  async loginByWechat(code: string) {
+    const data = await this.request<{ user: any; token: string; refreshToken: string; isNewUser?: boolean }>(
+      '/auth/wechat/login', { method: 'POST', body: JSON.stringify({ code }) }
+    );
+    this.setToken(data.token);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('refreshToken', data.refreshToken);
+    }
+    return data;
+  }
+
   // User
   getProfile() { return this.request<any>('/user/profile'); }
   updateSettings(settings: any) { return this.request<any>('/user/settings', { method: 'PATCH', body: JSON.stringify(settings) }); }
