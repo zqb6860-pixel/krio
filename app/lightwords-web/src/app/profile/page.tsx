@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 import { useApi } from '@/hooks/useApi';
@@ -11,16 +10,20 @@ export default function ProfilePage() {
   const { data: stats } = useApi(() => api.getLearningStats(), []);
   const { data: achievements } = useApi(() => api.getAchievements(), []);
   const { data: wordBooks } = useApi(() => api.getWordBooks(), []);
-  const { data: distribution } = useApi(() => api.getDistribution(), []);
   const { data: checkins } = useApi(() => api.getCheckinHistory(60), []);
-  const { data: weeklyStats } = useApi(() => api.getWeeklyStats(), []);
 
   const totalWords = stats?.total || 0;
-  const totalTime = weeklyStats?.reduce((s: number, d: any) => s + (d.timeSpent || 0), 0) || 0;
   const streak = user?.streak || 0;
 
+  // 本月打卡天数
+  const today = new Date();
+  const monthCheckins = (checkins || []).filter((c: any) => {
+    const d = c.date || '';
+    return d.startsWith(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`);
+  }).length;
+
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6">
 
       {/* User Header Card */}
       <div className="glass-card overflow-hidden">
@@ -33,7 +36,7 @@ export default function ProfilePage() {
             </div>
             <div className="flex-1">
               <h2 className="text-2xl font-bold">{user?.username || '用户'}</h2>
-              <p className="text-white/70 text-sm mt-0.5">{user?.email}</p>
+              <p className="text-white/70 text-sm mt-0.5">{user?.email || user?.phone || ''}</p>
               {/* Experience bar */}
               <div className="mt-3 max-w-xs">
                 <div className="flex justify-between text-xs text-white/60 mb-1">
@@ -69,61 +72,12 @@ export default function ProfilePage() {
       </div>
 
 
-      {/* Stats Overview Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {[
-          { label: '累计学习', value: totalWords, unit: '词', icon: '📖', gradient: 'from-blue-500 to-indigo-500' },
-          { label: '已掌握', value: stats?.mastered || 0, unit: '词', icon: '✅', gradient: 'from-green-500 to-emerald-500' },
-          { label: '学习中', value: stats?.learning || 0, unit: '词', icon: '📝', gradient: 'from-orange-400 to-amber-500' },
-          { label: '待复习', value: stats?.pendingReview || 0, unit: '词', icon: '🔄', gradient: 'from-purple-500 to-violet-500' },
-          { label: '本周时长', value: totalTime > 60 ? `${(totalTime/60).toFixed(1)}h` : `${totalTime}m`, unit: '', icon: '⏱️', gradient: 'from-pink-500 to-rose-500' },
-        ].map((stat, i) => (
-          <div key={stat.label} className="glass-card p-4 text-center card-hover">
-            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${stat.gradient} flex items-center justify-center text-lg mx-auto mb-2 shadow-sm`}>
-              {stat.icon}
-            </div>
-            <p className="text-xl font-bold text-slate-800 dark:text-slate-100">{stat.value}{stat.unit}</p>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{stat.label}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Main Content Grid */}
+      {/* 打卡激励 + 成就 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 词汇量增长曲线 (参考不背单词) */}
-        <div className="glass-card p-6 lg:col-span-2 card-hover">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">📈 词汇量增长曲线</h3>
-            <span className="text-xs text-slate-400">近30天</span>
-          </div>
-          <VocabularyGrowthChart checkins={checkins || []} totalWords={totalWords} />
-        </div>
-
         {/* 打卡激励 */}
         <div className="glass-card p-6 card-hover">
           <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-4">🔥 打卡激励</h3>
-          <StreakPanel streak={streak} checkins={checkins || []} />
-        </div>
-
-        {/* Checkin Calendar */}
-        <div className="glass-card p-6 card-hover">
-          <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-4">📅 学习日历</h3>
-          <CheckinCalendar checkins={checkins || []} streak={streak} />
-        </div>
-      </div>
-
-
-      {/* Weekly Trend */}
-      <div className="glass-card p-6 card-hover">
-        <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-4">📊 本周学习趋势</h3>
-        <WeeklyTrend data={weeklyStats || []} />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Mastery Distribution */}
-        <div className="glass-card p-6 card-hover">
-          <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-4">🎯 掌握度分析</h3>
-          <MasteryChart distribution={distribution} />
+          <StreakPanel streak={streak} />
         </div>
 
         {/* Achievements */}
@@ -153,12 +107,30 @@ export default function ProfilePage() {
         </div>
       </div>
 
+
+      {/* 学习数据概览 */}
+      <div className="glass-card p-6 card-hover">
+        <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-4">📊 学习数据</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <DataCard label="累计学习" value={`${totalWords}`} unit="词" icon="📖" />
+          <DataCard label="已掌握" value={`${stats?.mastered || 0}`} unit="词" icon="✅" />
+          <DataCard label="学习中" value={`${stats?.learning || 0}`} unit="词" icon="📝" />
+          <DataCard label="本月打卡" value={`${monthCheckins}`} unit="天" icon="📅" />
+        </div>
+      </div>
+
+
       {/* Word Books */}
       <div className="glass-card p-6 card-hover">
-        <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-4">📖 我的词库</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">📖 我的词库</h3>
+          <Link href="/books" className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400">
+            管理词库 →
+          </Link>
+        </div>
         {wordBooks && wordBooks.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {wordBooks.map((book: any) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {wordBooks.slice(0, 6).map((book: any) => (
               <div key={book.id} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-700 transition-colors">
                 <span className="text-2xl">📚</span>
                 <div className="flex-1 min-w-0">
@@ -172,12 +144,36 @@ export default function ProfilePage() {
           <p className="text-slate-400 dark:text-slate-500 text-sm text-center py-6">暂无词库</p>
         )}
       </div>
+
+      {/* 快捷操作 */}
+      <div className="glass-card p-6 card-hover">
+        <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-4">⚡ 快捷操作</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Link href="/settings" className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl text-center hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors border border-slate-100 dark:border-slate-700">
+            <span className="text-2xl block mb-1">⚙️</span>
+            <span className="text-xs text-slate-600 dark:text-slate-300">学习设置</span>
+          </Link>
+          <Link href="/books" className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl text-center hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors border border-slate-100 dark:border-slate-700">
+            <span className="text-2xl block mb-1">📚</span>
+            <span className="text-xs text-slate-600 dark:text-slate-300">切换词库</span>
+          </Link>
+          <Link href="/review" className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl text-center hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors border border-slate-100 dark:border-slate-700">
+            <span className="text-2xl block mb-1">🔄</span>
+            <span className="text-xs text-slate-600 dark:text-slate-300">去复习</span>
+          </Link>
+          <Link href="/challenge" className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl text-center hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors border border-slate-100 dark:border-slate-700">
+            <span className="text-2xl block mb-1">🎮</span>
+            <span className="text-xs text-slate-600 dark:text-slate-300">闯关挑战</span>
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }
 
 
-// ===== Quick Stat =====
+// ===== Components =====
+
 function QuickStat({ icon, value, label, color }: { icon: string; value: number | string; label: string; color: string }) {
   return (
     <div className="text-center px-3">
@@ -190,90 +186,17 @@ function QuickStat({ icon, value, label, color }: { icon: string; value: number 
   );
 }
 
-// ===== 词汇量增长曲线 (参考不背单词) =====
-function VocabularyGrowthChart({ checkins, totalWords }: { checkins: any[]; totalWords: number }) {
-  if (!checkins || checkins.length === 0) {
-    return (
-      <div className="text-center py-10 text-slate-400 dark:text-slate-500 text-sm">
-        <span className="text-3xl block mb-2">📈</span>
-        开始学习后，这里将展示你的词汇量增长曲线
-      </div>
-    );
-  }
-
-  // Build growth data from checkins (cumulative)
-  const sorted = [...checkins].sort((a, b) => new Date(a.date || a.createdAt).getTime() - new Date(b.date || b.createdAt).getTime());
-  let cumulative = Math.max(0, totalWords - sorted.reduce((s, c) => s + (c.wordsLearned || 0), 0));
-  const dataPoints = sorted.map(c => {
-    cumulative += (c.wordsLearned || 0);
-    return { date: c.date || c.createdAt, total: cumulative, daily: c.wordsLearned || 0 };
-  });
-
-  // Take last 30 points max
-  const points = dataPoints.slice(-30);
-  if (points.length === 0) return <p className="text-slate-400 text-sm text-center py-8">暂无数据</p>;
-
-  const maxVal = Math.max(...points.map(p => p.total), 1);
-  const minVal = Math.min(...points.map(p => p.total));
-  const range = maxVal - minVal || 1;
-  const chartW = 600;
-  const chartH = 120;
-  const padding = 40;
-
-  const getX = (i: number) => padding + (i / (points.length - 1 || 1)) * (chartW - padding * 2);
-  const getY = (val: number) => chartH - 10 - ((val - minVal) / range) * (chartH - 30);
-
-  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${getX(i)},${getY(p.total)}`).join(' ');
-  const areaPath = linePath + ` L${getX(points.length - 1)},${chartH - 5} L${getX(0)},${chartH - 5} Z`;
-
+function DataCard({ label, value, unit, icon }: { label: string; value: string; unit: string; icon: string }) {
   return (
-    <div className="space-y-3">
-      <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 overflow-hidden">
-        <svg viewBox={`0 0 ${chartW} ${chartH + 20}`} className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
-          {/* Grid lines */}
-          {[0, 0.25, 0.5, 0.75, 1].map(pct => {
-            const val = Math.round(minVal + range * pct);
-            const y = getY(val);
-            return (
-              <g key={pct}>
-                <line x1={padding} y1={y} x2={chartW - padding} y2={y} className="stroke-slate-200 dark:stroke-slate-700" strokeWidth="0.5" strokeDasharray="4,3" />
-                <text x={padding - 5} y={y + 3} textAnchor="end" fontSize="9" className="fill-slate-400">{val}</text>
-              </g>
-            );
-          })}
-          {/* Area fill */}
-          <path d={areaPath} fill="url(#growthGradient)" opacity="0.15" />
-          {/* Line */}
-          <path d={linePath} fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          {/* End point */}
-          <circle cx={getX(points.length - 1)} cy={getY(points[points.length - 1].total)} r="4" fill="#6366f1" stroke="white" strokeWidth="2" />
-          {/* Start point */}
-          <circle cx={getX(0)} cy={getY(points[0].total)} r="3" fill="#6366f1" opacity="0.5" />
-          {/* Date labels */}
-          {[0, Math.floor(points.length / 2), points.length - 1].map(i => {
-            if (i >= points.length) return null;
-            const d = new Date(points[i].date);
-            return <text key={i} x={getX(i)} y={chartH + 15} textAnchor="middle" fontSize="8" className="fill-slate-400">{`${d.getMonth() + 1}/${d.getDate()}`}</text>;
-          })}
-          <defs>
-            <linearGradient id="growthGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#6366f1" />
-              <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-        </svg>
-      </div>
-      <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 px-1">
-        <span>起始: {points[0].total} 词</span>
-        <span className="font-medium text-indigo-600 dark:text-indigo-400">当前: {points[points.length - 1].total} 词 (+{points[points.length - 1].total - points[0].total})</span>
-      </div>
+    <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl text-center border border-slate-100 dark:border-slate-700">
+      <span className="text-2xl block mb-2">{icon}</span>
+      <p className="text-xl font-bold text-slate-800 dark:text-slate-100">{value}<span className="text-sm font-normal text-slate-500 dark:text-slate-400 ml-0.5">{unit}</span></p>
+      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">{label}</p>
     </div>
   );
 }
 
-
-// ===== Streak Panel (参考不背单词打卡激励) =====
-function StreakPanel({ streak, checkins }: { streak: number; checkins: any[] }) {
+function StreakPanel({ streak }: { streak: number }) {
   const milestones = [
     { days: 7, label: '7天', icon: '🌟', reward: '新手坚持' },
     { days: 14, label: '14天', icon: '💎', reward: '习惯养成' },
@@ -291,12 +214,12 @@ function StreakPanel({ streak, checkins }: { streak: number; checkins: any[] }) 
     <div className="space-y-4">
       {/* Streak Counter */}
       <div className="flex items-center gap-5">
-        <div className={`w-20 h-20 rounded-2xl flex items-center justify-center shadow-lg ${
+        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg ${
           streak > 0 ? 'bg-gradient-to-br from-orange-400 to-red-500 shadow-orange-200 dark:shadow-orange-900/30' : 'bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-600'
         }`}>
           <div className="text-center text-white">
-            <p className="text-2xl font-black">{streak}</p>
-            <p className="text-[10px] opacity-80">连续天</p>
+            <p className="text-xl font-black">{streak}</p>
+            <p className="text-[9px] opacity-80">连续天</p>
           </div>
         </div>
         <div className="flex-1">
@@ -308,10 +231,10 @@ function StreakPanel({ streak, checkins }: { streak: number; checkins: any[] }) 
               目标: {nextMilestone.icon} {nextMilestone.label}
             </span>
           </div>
-          <div className="h-3 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+          <div className="h-2.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
             <div className="h-full bg-gradient-to-r from-orange-400 to-red-500 rounded-full transition-all duration-1000" style={{ width: `${progress}%` }} />
           </div>
-          <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">还差 {Math.max(0, nextMilestone.days - streak)} 天</p>
+          <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">还差 {Math.max(0, nextMilestone.days - streak)} 天达成下一个里程碑</p>
         </div>
       </div>
 
@@ -328,160 +251,6 @@ function StreakPanel({ streak, checkins }: { streak: number; checkins: any[] }) 
             </div>
           );
         })}
-      </div>
-
-      {/* Tip */}
-      <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-xl border border-orange-100 dark:border-orange-800/30">
-        <p className="text-xs text-orange-700 dark:text-orange-300">
-          {streak === 0 && '💡 今天开始打卡吧！坚持7天获得第一个成就。'}
-          {streak > 0 && streak < 7 && `💪 再坚持 ${7 - streak} 天获得「新手坚持」成就！`}
-          {streak >= 7 && streak < 30 && `🌟 已坚持${streak}天，向30天「月度达人」冲刺！`}
-          {streak >= 30 && streak < 100 && `🔥 ${streak}天连续学习，你的坚持正在创造奇迹！`}
-          {streak >= 100 && `👑 ${streak}天！你是真正的词汇王者！`}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-
-// ===== Checkin Calendar =====
-function CheckinCalendar({ checkins, streak }: { checkins: any[]; streak: number }) {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const firstDayOfWeek = new Date(year, month, 1).getDay();
-  const currentDay = today.getDate();
-
-  const checkinMap = new Map<number, any>();
-  checkins.forEach((c: any) => {
-    const date = c.date || '';
-    const parts = date.split('-');
-    if (parts.length === 3 && parseInt(parts[1]) === month + 1 && parseInt(parts[0]) === year) {
-      checkinMap.set(parseInt(parts[2]), c);
-    }
-  });
-
-  const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
-  const months = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'];
-  const monthCheckins = checkins.filter((c: any) => {
-    const d = c.date || '';
-    return d.startsWith(`${year}-${String(month + 1).padStart(2, '0')}`);
-  }).length;
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{year}年 {months[month]}</span>
-        <div className="flex items-center gap-2 text-xs">
-          <span className="text-orange-500">🔥 {streak}天连续</span>
-          <span className="text-slate-400">·</span>
-          <span className="text-slate-500 dark:text-slate-400">本月{monthCheckins}天</span>
-        </div>
-      </div>
-      <div className="grid grid-cols-7 gap-1 text-center">
-        {weekDays.map(d => (<div key={d} className="text-[10px] text-slate-400 dark:text-slate-500 py-1 font-medium">{d}</div>))}
-        {Array.from({ length: firstDayOfWeek }).map((_, i) => (<div key={`e-${i}`} className="aspect-square" />))}
-        {Array.from({ length: daysInMonth }).map((_, i) => {
-          const day = i + 1;
-          const checkin = checkinMap.get(day);
-          const isToday = day === currentDay;
-          const isChecked = !!checkin;
-          return (
-            <div key={day} title={isChecked ? `学习${checkin.wordsLearned || 0}词` : ''}
-              className={`aspect-square flex items-center justify-center text-[11px] rounded-lg transition-colors ${
-                isToday ? 'bg-blue-500 text-white font-bold shadow-sm shadow-blue-500/30' :
-                isChecked ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-medium' :
-                day > currentDay ? 'text-slate-200 dark:text-slate-700' : 'text-slate-400 dark:text-slate-500'
-              }`}>{day}</div>
-          );
-        })}
-      </div>
-      <div className="mt-3 flex items-center gap-4 text-[11px] text-slate-500 dark:text-slate-400">
-        <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-700" /><span>已打卡</span></div>
-        <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded bg-blue-500" /><span>今天</span></div>
-      </div>
-    </div>
-  );
-}
-
-
-// ===== Mastery Chart =====
-function MasteryChart({ distribution }: { distribution: any }) {
-  if (!distribution) return <p className="text-slate-400 dark:text-slate-500 text-sm text-center py-8">暂无数据</p>;
-  const total = (distribution.mastered || 0) + (distribution.familiar || 0) + (distribution.vague || 0) + (distribution.unknown || 0);
-  if (total === 0) return <p className="text-slate-400 dark:text-slate-500 text-sm text-center py-8">开始学习后显示掌握度</p>;
-
-  const items = [
-    { label: '已掌握', count: distribution.mastered || 0, color: '#10b981', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
-    { label: '熟悉', count: distribution.familiar || 0, color: '#3b82f6', bg: 'bg-blue-50 dark:bg-blue-900/20' },
-    { label: '模糊', count: distribution.vague || 0, color: '#f59e0b', bg: 'bg-amber-50 dark:bg-amber-900/20' },
-    { label: '陌生', count: distribution.unknown || 0, color: '#ef4444', bg: 'bg-red-50 dark:bg-red-900/20' },
-  ];
-
-  return (
-    <div className="space-y-4">
-      {/* Horizontal bar */}
-      <div className="h-4 rounded-full overflow-hidden flex shadow-inner bg-slate-100 dark:bg-slate-700">
-        {items.map(item => {
-          const pct = (item.count / total) * 100;
-          if (pct === 0) return null;
-          return <div key={item.label} style={{ width: `${pct}%`, backgroundColor: item.color }} className="h-full transition-all duration-700" />;
-        })}
-      </div>
-      {/* Legend grid */}
-      <div className="grid grid-cols-2 gap-2">
-        {items.map(item => {
-          const pct = total > 0 ? Math.round((item.count / total) * 100) : 0;
-          return (
-            <div key={item.label} className={`${item.bg} p-3 rounded-xl flex items-center gap-2`}>
-              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-              <div>
-                <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{item.count}</p>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400">{item.label} ({pct}%)</p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <p className="text-xs text-center text-slate-400 dark:text-slate-500">总词汇量: <span className="font-bold text-slate-700 dark:text-slate-200">{total}</span></p>
-    </div>
-  );
-}
-
-// ===== Weekly Trend =====
-function WeeklyTrend({ data }: { data: any[] }) {
-  if (!data || data.length === 0) return <p className="text-slate-400 dark:text-slate-500 text-sm text-center py-8">暂无本周数据</p>;
-
-  const days = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-  const maxWords = Math.max(1, ...data.map((d: any) => d.wordsLearned || 0));
-
-  return (
-    <div>
-      <div className="flex items-end justify-between gap-3 h-28">
-        {days.map((day, i) => {
-          const d = data[i];
-          const words = d?.wordsLearned || 0;
-          const pct = (words / maxWords) * 100;
-          const isToday = i === (new Date().getDay() + 6) % 7;
-          return (
-            <div key={day} className="flex-1 flex flex-col items-center gap-1">
-              <span className="text-[10px] text-slate-500 dark:text-slate-400">{words > 0 ? words : ''}</span>
-              <div className="w-full flex justify-center items-end" style={{ height: '80px' }}>
-                <div className={`w-6 rounded-t-lg transition-all duration-500 ${
-                  isToday ? 'bg-gradient-to-t from-indigo-600 to-indigo-400' : 'bg-gradient-to-t from-indigo-400 to-indigo-300 dark:from-indigo-600 dark:to-indigo-500'
-                }`} style={{ height: `${Math.max(pct, 6)}%` }} />
-              </div>
-              <span className={`text-[11px] ${isToday ? 'text-indigo-600 dark:text-indigo-400 font-bold' : 'text-slate-400 dark:text-slate-500'}`}>{day}</span>
-            </div>
-          );
-        })}
-      </div>
-      <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 grid grid-cols-3 gap-4 text-center">
-        <div><p className="text-lg font-bold text-slate-800 dark:text-slate-100">{data.reduce((s: number, d: any) => s + (d.wordsLearned || 0), 0)}</p><p className="text-[11px] text-slate-500 dark:text-slate-400">本周单词</p></div>
-        <div><p className="text-lg font-bold text-slate-800 dark:text-slate-100">{data.reduce((s: number, d: any) => s + (d.wordsReviewed || 0), 0)}</p><p className="text-[11px] text-slate-500 dark:text-slate-400">本周复习</p></div>
-        <div><p className="text-lg font-bold text-slate-800 dark:text-slate-100">{data.filter((d: any) => d.wordsLearned > 0).length}</p><p className="text-[11px] text-slate-500 dark:text-slate-400">学习天数</p></div>
       </div>
     </div>
   );
