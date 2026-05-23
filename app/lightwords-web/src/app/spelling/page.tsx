@@ -209,7 +209,7 @@ export default function SpellingPage() {
 
         {/* Word Display - Letter by Letter */}
         <div className="flex items-center justify-center gap-0.5 flex-wrap">
-          {targetWord.split('').map((char, i) => {
+          {targetWord.split('').map((char: string, i: number) => {
             let status: 'pending' | 'correct' | 'wrong' | 'current' = 'pending';
 
             if (i < typedChars.length) {
