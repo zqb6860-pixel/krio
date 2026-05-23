@@ -31,4 +31,4 @@ COPY --from=builder /app/package.json ./
 
 EXPOSE 3001
 
-CMD ["sh", "-c", "sed -i 's/provider = \"sqlite\"/provider = \"postgresql\"/' prisma/schema.prisma && npx prisma db push --skip-generate && node dist/index.js"]
+CMD ["sh", "-c", "sed -i 's/provider = \"sqlite\"/provider = \"postgresql\"/' prisma/schema.prisma && npx prisma db push --skip-generate && node dist/src/index.js"]
