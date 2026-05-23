@@ -34,15 +34,17 @@ model User {
 }
 
 model UserSettings {
-  id             String  @id @default(cuid())
-  userId         String  @unique
-  dailyWordGoal  Int     @default(30)
-  dailyTimeGoal  Int     @default(30)
-  weeklyDaysGoal Int     @default(5)
-  pronunciation  String  @default("us")
-  theme          String  @default("light")
-  fontSize       String  @default("medium")
-  reminderTime   String?
+  id              String  @id @default(cuid())
+  userId          String  @unique
+  dailyWordGoal   Int     @default(30)
+  dailyTimeGoal   Int     @default(30)
+  weeklyDaysGoal  Int     @default(5)
+  pronunciation   String  @default("us")
+  theme           String  @default("light")
+  fontSize        String  @default("medium")
+  reminderTime    String?
+  currentBookId   String? // 当前选择的词库ID
+  wordOrder       String  @default("sequential") // sequential | random
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

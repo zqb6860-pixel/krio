@@ -60,31 +60,62 @@ wordRouter.get('/today', authMiddleware, async (req: AuthRequest, res: Response)
   try {
     const userId = req.userId!;
 
-    // Get user's daily goal
+    // Get user's daily goal and current book
     const settings = await prisma.userSettings.findUnique({ where: { userId } });
     const dailyGoal = settings?.dailyWordGoal || 30;
+    const currentBookId = settings?.currentBookId;
+    const wordOrder = settings?.wordOrder || 'sequential'; // sequential | random
 
-    // Get words the user hasn't learned yet (status = 'new' or no record)
+    // Get words the user hasn't learned yet
     const existingRecords = await prisma.learningRecord.findMany({
       where: { userId },
       select: { wordId: true },
     });
     const learnedWordIds = existingRecords.map((r) => r.wordId);
 
-    // Get new words from a default word book (or all words)
-    const newWords = await prisma.word.findMany({
-      where: {
-        id: { notIn: learnedWordIds.length > 0 ? learnedWordIds : ['__none__'] },
-      },
-      include: {
-        meanings: true,
-        roots: true,
-        collocations: true,
-        examples: { take: 2 },
-      },
-      take: dailyGoal,
-      orderBy: { frequency: 'desc' },
-    });
+    // If user selected a specific word book, get words from that book
+    let newWords;
+    if (currentBookId) {
+      const bookWords = await prisma.wordBookWord.findMany({
+        where: {
+          wordBookId: currentBookId,
+          wordId: { notIn: learnedWordIds.length > 0 ? learnedWordIds : ['__none__'] },
+        },
+        include: {
+          word: {
+            include: {
+              meanings: true,
+              roots: true,
+              collocations: true,
+              examples: { take: 2 },
+            },
+          },
+        },
+        orderBy: { order: 'asc' },
+        take: wordOrder === 'random' ? dailyGoal * 3 : dailyGoal,
+      });
+      newWords = bookWords.map((bw) => bw.word);
+
+      // If random mode, shuffle and take dailyGoal
+      if (wordOrder === 'random' && newWords.length > dailyGoal) {
+        newWords = shuffleArray(newWords).slice(0, dailyGoal);
+      }
+    } else {
+      // No book selected, get from all words
+      newWords = await prisma.word.findMany({
+        where: {
+          id: { notIn: learnedWordIds.length > 0 ? learnedWordIds : ['__none__'] },
+        },
+        include: {
+          meanings: true,
+          roots: true,
+          collocations: true,
+          examples: { take: 2 },
+        },
+        take: dailyGoal,
+        orderBy: wordOrder === 'random' ? undefined : { frequency: 'desc' },
+      });
+    }
 
     res.json(newWords);
   } catch (error) {
@@ -92,6 +123,15 @@ wordRouter.get('/today', authMiddleware, async (req: AuthRequest, res: Response)
     res.status(500).json({ error: '获取今日单词失败' });
   }
 });
+
+function shuffleArray<T>(array: T[]): T[] {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
 
 // GET /api/words/search?q=xxx
 wordRouter.get('/search', async (req: Request, res: Response) => {

@@ -8,6 +8,8 @@ import { useAuth } from '@/contexts/AuthContext';
 const navItems = [
   { href: '/', label: '首页', icon: '🏠', desc: '仪表盘' },
   { href: '/learn', label: '学习', icon: '📚', desc: '单词学习' },
+  { href: '/spelling', label: '默写', icon: '✍️', desc: '拼写练习' },
+  { href: '/books', label: '词库', icon: '📖', desc: '选择词库' },
   { href: '/challenge', label: '闯关', icon: '🎮', desc: '闯关模式' },
   { href: '/review', label: '复习', icon: '🔄', desc: '复习中心' },
   { href: '/profile', label: '我的', icon: '👤', desc: '个人中心' },

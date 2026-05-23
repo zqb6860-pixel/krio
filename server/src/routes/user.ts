@@ -49,7 +49,7 @@ userRouter.get('/profile', async (req: AuthRequest, res: Response) => {
 // PATCH /api/user/settings
 userRouter.patch('/settings', async (req: AuthRequest, res: Response) => {
   try {
-    const { dailyWordGoal, dailyTimeGoal, weeklyDaysGoal, pronunciation, theme, fontSize, reminderTime } = req.body;
+    const { dailyWordGoal, dailyTimeGoal, weeklyDaysGoal, pronunciation, theme, fontSize, reminderTime, wordOrder } = req.body;
 
     const settings = await prisma.userSettings.upsert({
       where: { userId: req.userId! },
@@ -61,11 +61,13 @@ userRouter.patch('/settings', async (req: AuthRequest, res: Response) => {
         ...(theme !== undefined && { theme }),
         ...(fontSize !== undefined && { fontSize }),
         ...(reminderTime !== undefined && { reminderTime }),
+        ...(wordOrder !== undefined && { wordOrder }),
       },
       create: {
         userId: req.userId!,
         dailyWordGoal: dailyWordGoal || 30,
         dailyTimeGoal: dailyTimeGoal || 30,
+        wordOrder: wordOrder || 'sequential',
       },
     });
 
@@ -73,6 +75,43 @@ userRouter.patch('/settings', async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error('Settings error:', error);
     res.status(500).json({ error: '更新设置失败' });
+  }
+});
+
+// PUT /api/user/current-book - Set current word book
+userRouter.put('/current-book', async (req: AuthRequest, res: Response) => {
+  try {
+    const { bookId } = req.body;
+    if (!bookId) return res.status(400).json({ error: '请选择一个词库' });
+
+    // Verify book exists
+    const book = await prisma.wordBook.findUnique({ where: { id: bookId } });
+    if (!book) return res.status(404).json({ error: '词库不存在' });
+
+    const settings = await prisma.userSettings.upsert({
+      where: { userId: req.userId! },
+      update: { currentBookId: bookId },
+      create: { userId: req.userId!, currentBookId: bookId },
+    });
+
+    res.json({ currentBookId: settings.currentBookId, bookName: book.name });
+  } catch (error) {
+    console.error('Set book error:', error);
+    res.status(500).json({ error: '设置词库失败' });
+  }
+});
+
+// GET /api/user/current-book - Get current word book info
+userRouter.get('/current-book', async (req: AuthRequest, res: Response) => {
+  try {
+    const settings = await prisma.userSettings.findUnique({ where: { userId: req.userId! } });
+    if (!settings?.currentBookId) {
+      return res.json({ currentBook: null });
+    }
+    const book = await prisma.wordBook.findUnique({ where: { id: settings.currentBookId } });
+    res.json({ currentBook: book });
+  } catch (error) {
+    res.status(500).json({ error: '获取当前词库失败' });
   }
 });
 

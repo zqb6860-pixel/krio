@@ -79,12 +79,12 @@ export default function LearnPage() {
     return (
       <div className="max-w-4xl mx-auto flex items-center justify-center h-[60vh]">
         <div className="text-center glass-card p-8">
-          <span className="text-5xl">🎉</span>
-          <h3 className="text-xl font-bold text-slate-800 mt-4">今日单词学习完毕！</h3>
-          <p className="text-slate-500 mt-2">你已经学完了所有安排的单词，去复习或闯关吧</p>
+          <span className="text-5xl">📖</span>
+          <h3 className="text-xl font-bold text-slate-800 mt-4">没有待学习的单词</h3>
+          <p className="text-slate-500 mt-2">请先选择一本词库，或者你已经学完了当前词库的全部单词</p>
           <div className="flex gap-3 mt-6 justify-center">
+            <a href="/books" className="px-5 py-2.5 bg-blue-500 text-white rounded-xl text-sm font-medium hover:bg-blue-600">选择词库</a>
             <a href="/review" className="px-5 py-2.5 bg-orange-500 text-white rounded-xl text-sm font-medium hover:bg-orange-600">去复习</a>
-            <a href="/challenge" className="px-5 py-2.5 bg-purple-500 text-white rounded-xl text-sm font-medium hover:bg-purple-600">去闯关</a>
           </div>
         </div>
       </div>
@@ -250,6 +250,25 @@ export default function LearnPage() {
             </button>
           </div>
         )}
+      </div>
+
+      {/* Prev/Next Navigation */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => { setCurrentIndex(i => Math.max(0, i - 1)); setShowAnswer(false); setActiveTab('root'); }}
+          disabled={currentIndex === 0}
+          className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        >
+          ← 上一个
+        </button>
+        <span className="text-xs text-slate-400">{currentIndex + 1} / {totalWords}</span>
+        <button
+          onClick={() => { if (currentIndex < totalWords - 1) { setCurrentIndex(i => i + 1); setShowAnswer(false); setActiveTab('root'); } }}
+          disabled={currentIndex >= totalWords - 1}
+          className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        >
+          下一个 →
+        </button>
       </div>
     </div>
   );
