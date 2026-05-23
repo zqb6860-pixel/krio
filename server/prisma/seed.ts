@@ -63,7 +63,7 @@ async function main() {
             meaning: r.meaning,
             origin: r.origin || 'Latin',
             type: r.type,
-            relatedWords: r.related || [],
+            relatedWords: JSON.stringify(r.related || []),
           })),
         } : undefined,
         collocations: w.collocations ? {

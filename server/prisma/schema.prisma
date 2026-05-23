@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -24,25 +24,25 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  settings       UserSettings?
+  settings        UserSettings?
   learningRecords LearningRecord[]
-  checkins       Checkin[]
-  achievements   UserAchievement[]
-  levelResults   LevelResult[]
+  checkins        Checkin[]
+  achievements    UserAchievement[]
+  levelResults    LevelResult[]
 
   @@map("users")
 }
 
 model UserSettings {
-  id              String @id @default(cuid())
-  userId          String @unique
-  dailyWordGoal   Int    @default(30)
-  dailyTimeGoal   Int    @default(30) // minutes
-  weeklyDaysGoal  Int    @default(5)
-  pronunciation   String @default("us") // us | uk
-  theme           String @default("light")
-  fontSize        String @default("medium")
-  reminderTime    String? // HH:MM
+  id             String  @id @default(cuid())
+  userId         String  @unique
+  dailyWordGoal  Int     @default(30)
+  dailyTimeGoal  Int     @default(30)
+  weeklyDaysGoal Int     @default(5)
+  pronunciation  String  @default("us")
+  theme          String  @default("light")
+  fontSize       String  @default("medium")
+  reminderTime   String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -55,10 +55,10 @@ model WordBook {
   id          String   @id @default(cuid())
   name        String
   description String
-  category    String   // cet4, cet6, ielts, etc
+  category    String
   wordCount   Int      @default(0)
   coverImage  String?
-  difficulty  Int      @default(3) // 1-5
+  difficulty  Int      @default(3)
   isSystem    Boolean  @default(true)
   createdAt   DateTime @default(now())
 
@@ -68,16 +68,16 @@ model WordBook {
 }
 
 model Word {
-  id          String   @id @default(cuid())
-  word        String   @unique
-  phonetic    String?
-  phoneticUs  String?
-  phoneticUk  String?
-  audioUs     String?
-  audioUk     String?
-  difficulty  Int      @default(3) // 1-5
-  frequency   Int      @default(0) // word frequency rank
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  word       String   @unique
+  phonetic   String?
+  phoneticUs String?
+  phoneticUk String?
+  audioUs    String?
+  audioUk    String?
+  difficulty Int      @default(3)
+  frequency  Int      @default(0)
+  createdAt  DateTime @default(now())
 
   meanings     WordMeaning[]
   roots        WordRoot[]
@@ -87,17 +87,16 @@ model Word {
   records      LearningRecord[]
   exercises    Exercise[]
 
-  @@index([word])
   @@map("words")
 }
 
 model WordMeaning {
-  id            String @id @default(cuid())
-  wordId        String
-  partOfSpeech  String // n. v. adj. adv. etc
-  definition    String // English definition
-  translation   String // Chinese translation
-  order         Int    @default(0)
+  id           String @id @default(cuid())
+  wordId       String
+  partOfSpeech String
+  definition   String
+  translation  String
+  order        Int    @default(0)
 
   word Word @relation(fields: [wordId], references: [id], onDelete: Cascade)
 
@@ -109,9 +108,9 @@ model WordRoot {
   wordId       String
   root         String
   meaning      String
-  origin       String // Latin, Greek, etc
-  type         String // prefix, suffix, root
-  relatedWords String[] // array of related word strings
+  origin       String
+  type         String
+  relatedWords String @default("[]") // JSON string for SQLite compatibility
 
   word Word @relation(fields: [wordId], references: [id], onDelete: Cascade)
 
@@ -135,7 +134,7 @@ model WordExample {
   wordId      String
   sentence    String
   translation String
-  source      String  // movie, exam, news, etc
+  source      String
   sourceYear  String?
   audioUrl    String?
 
@@ -160,44 +159,42 @@ model WordBookWord {
 // ==================== 学习记录 ====================
 
 model LearningRecord {
-  id            String   @id @default(cuid())
-  userId        String
-  wordId        String
-  status        String   @default("new") // new, learning, reviewing, mastered
-  masteryLevel  Int      @default(0) // 0-100
-  easeFactor    Float    @default(2.5) // SM-2 ease factor
-  interval      Int      @default(0) // days until next review
-  repetitions   Int      @default(0)
-  reviewCount   Int      @default(0)
-  correctCount  Int      @default(0)
-  incorrectCount Int     @default(0)
-  lastReviewAt  DateTime?
-  nextReviewAt  DateTime?
-  firstLearnedAt DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id             String    @id @default(cuid())
+  userId         String
+  wordId         String
+  status         String    @default("new")
+  masteryLevel   Int       @default(0)
+  easeFactor     Float     @default(2.5)
+  interval       Int       @default(0)
+  repetitions    Int       @default(0)
+  reviewCount    Int       @default(0)
+  correctCount   Int       @default(0)
+  incorrectCount Int       @default(0)
+  lastReviewAt   DateTime?
+  nextReviewAt   DateTime?
+  firstLearnedAt DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   word Word @relation(fields: [wordId], references: [id], onDelete: Cascade)
 
   @@unique([userId, wordId])
-  @@index([userId, nextReviewAt])
-  @@index([userId, status])
   @@map("learning_records")
 }
 
 // ==================== 打卡系统 ====================
 
 model Checkin {
-  id        String   @id @default(cuid())
-  userId    String
-  date      String   // YYYY-MM-DD
-  wordsLearned  Int  @default(0)
-  wordsReviewed Int  @default(0)
-  timeSpent     Int  @default(0) // minutes
-  correctRate   Float @default(0)
-  coinsEarned   Int  @default(0)
-  expEarned     Int  @default(0)
-  createdAt DateTime @default(now())
+  id            String   @id @default(cuid())
+  userId        String
+  date          String
+  wordsLearned  Int      @default(0)
+  wordsReviewed Int      @default(0)
+  timeSpent     Int      @default(0)
+  correctRate   Float    @default(0)
+  coinsEarned   Int      @default(0)
+  expEarned     Int      @default(0)
+  createdAt     DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -212,8 +209,8 @@ model Achievement {
   name        String
   description String
   icon        String
-  category    String // learning, persistence, skill, collection, hidden
-  requirement Int    // threshold to unlock
+  category    String
+  requirement Int
   rewardCoins Int    @default(0)
   rewardExp   Int    @default(0)
 
@@ -223,11 +220,11 @@ model Achievement {
 }
 
 model UserAchievement {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   userId        String
   achievementId String
-  progress      Int      @default(0)
-  isUnlocked    Boolean  @default(false)
+  progress      Int       @default(0)
+  isUnlocked    Boolean   @default(false)
   unlockedAt    DateTime?
 
   user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -243,7 +240,7 @@ model LearningPath {
   id          String @id @default(cuid())
   name        String
   description String
-  category    String // vocabulary, grammar, dialogue, exam
+  category    String
   order       Int    @default(0)
   icon        String @default("📚")
 
@@ -267,12 +264,12 @@ model Unit {
 }
 
 model Level {
-  id          String @id @default(cuid())
+  id          String  @id @default(cuid())
   unitId      String
   title       String
   description String?
   order       Int     @default(0)
-  unlockAfter String? // previous level id required
+  unlockAfter String?
 
   unit      Unit         @relation(fields: [unitId], references: [id], onDelete: Cascade)
   exercises Exercise[]
@@ -285,9 +282,9 @@ model Exercise {
   id            String  @id @default(cuid())
   levelId       String
   wordId        String?
-  type          String  // choose_translation, listen_choose, spelling, fill_blank, sentence_order, image_word
+  type          String
   question      String
-  options       String[] // array of option strings
+  options       String  @default("[]") // JSON string for SQLite
   correctAnswer String
   explanation   String?
   audioUrl      String?
@@ -304,7 +301,7 @@ model LevelResult {
   id          String   @id @default(cuid())
   userId      String
   levelId     String
-  stars       Int      @default(0) // 0-3
+  stars       Int      @default(0)
   score       Int      @default(0)
   maxCombo    Int      @default(0)
   completedAt DateTime @default(now())
@@ -312,6 +309,5 @@ model LevelResult {
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   level Level @relation(fields: [levelId], references: [id], onDelete: Cascade)
 
-  @@index([userId, levelId])
   @@map("level_results")
 }
