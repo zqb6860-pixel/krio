@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 import { useApi } from '@/hooks/useApi';
@@ -13,9 +14,21 @@ export default function ProfilePage() {
   const { data: distribution } = useApi(() => api.getDistribution(), []);
   const { data: checkins } = useApi(() => api.getCheckinHistory(60), []);
   const { data: weeklyStats } = useApi(() => api.getWeeklyStats(), []);
+  const [showCheckinAnim, setShowCheckinAnim] = useState(false);
+  const [showMilestone, setShowMilestone] = useState<number | null>(null);
 
   const totalWords = stats?.total || 0;
   const totalTime = weeklyStats?.reduce((s: number, d: any) => s + (d.timeSpent || 0), 0) || 0;
+  const streak = user?.streak || 0;
+
+  // 检查是否达到里程碑
+  useEffect(() => {
+    const milestones = [7, 14, 30, 50, 100, 200, 365];
+    const hitMilestone = milestones.find(m => m === streak);
+    if (hitMilestone && streak > 0) {
+      setShowMilestone(hitMilestone);
+    }
+  }, [streak]);
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -84,6 +97,24 @@ export default function ProfilePage() {
 
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* 打卡激励系统 (参考不背单词) */}
+        <div className="glass-card p-6 lg:col-span-2">
+          <StreakIncentivePanel
+            streak={streak}
+            checkins={checkins || []}
+            showAnim={showCheckinAnim}
+            onAnimEnd={() => setShowCheckinAnim(false)}
+          />
+        </div>
+
+        {/* Milestone Celebration Modal */}
+        {showMilestone && (
+          <MilestoneCelebration
+            days={showMilestone}
+            onClose={() => setShowMilestone(null)}
+          />
+        )}
+
         {/* Checkin Calendar */}
         <div className="glass-card p-6">
           <h3 className="text-lg font-semibold text-slate-800 mb-4">📅 打卡日历</h3>
@@ -307,6 +338,158 @@ function WeeklyTrend({ data }: { data: any[] }) {
           <p className="text-lg font-bold text-slate-800">{data.filter((d: any) => d.wordsLearned > 0).length}</p>
           <p className="text-xs text-slate-500">学习天数</p>
         </div>
+      </div>
+    </div>
+  );
+}
+
+
+
+// ===== 打卡激励面板 (参考不背单词) =====
+function StreakIncentivePanel({ streak, checkins, showAnim, onAnimEnd }: {
+  streak: number; checkins: any[]; showAnim: boolean; onAnimEnd: () => void;
+}) {
+  const milestones = [
+    { days: 7, label: '7天', icon: '🌟', reward: '新手坚持', color: 'from-blue-400 to-blue-500' },
+    { days: 14, label: '14天', icon: '💎', reward: '习惯养成', color: 'from-purple-400 to-purple-500' },
+    { days: 30, label: '30天', icon: '🏆', reward: '月度达人', color: 'from-yellow-400 to-orange-500' },
+    { days: 50, label: '50天', icon: '🔥', reward: '半百挑战', color: 'from-red-400 to-red-500' },
+    { days: 100, label: '100天', icon: '👑', reward: '百日王者', color: 'from-amber-400 to-amber-600' },
+    { days: 365, label: '365天', icon: '🎖️', reward: '年度传奇', color: 'from-emerald-400 to-emerald-600' },
+  ];
+
+  // 找到下一个里程碑
+  const nextMilestone = milestones.find(m => m.days > streak) || milestones[milestones.length - 1];
+  const prevMilestone = [...milestones].reverse().find(m => m.days <= streak);
+  const progressToNext = nextMilestone ? Math.min(100, (streak / nextMilestone.days) * 100) : 100;
+
+  // 本月打卡天数
+  const today = new Date();
+  const thisMonthCheckins = checkins.filter((c: any) => {
+    const d = c.date || '';
+    return d.startsWith(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`);
+  }).length;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-slate-800">🔥 打卡激励</h3>
+        <div className="flex items-center gap-4 text-sm">
+          <span className="text-slate-500">本月打卡 <span className="font-bold text-blue-600">{thisMonthCheckins}</span> 天</span>
+        </div>
+      </div>
+
+      {/* Streak Display */}
+      <div className="flex items-center gap-6">
+        {/* Streak Fire Counter */}
+        <div className="relative">
+          <div className={`w-24 h-24 rounded-2xl bg-gradient-to-br ${streak > 0 ? 'from-orange-400 to-red-500' : 'from-slate-200 to-slate-300'} flex items-center justify-center shadow-lg ${streak > 0 ? 'shadow-orange-200' : ''}`}>
+            <div className="text-center text-white">
+              <p className="text-3xl font-black">{streak}</p>
+              <p className="text-xs opacity-80">连续天</p>
+            </div>
+          </div>
+          {streak > 0 && (
+            <div className="absolute -top-2 -right-2 text-2xl animate-bounce">🔥</div>
+          )}
+        </div>
+
+        {/* Progress to next milestone */}
+        <div className="flex-1">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-slate-600">
+              {prevMilestone ? `已达成: ${prevMilestone.icon} ${prevMilestone.reward}` : '开始你的打卡之旅'}
+            </span>
+            <span className="text-sm text-slate-500">
+              下一目标: {nextMilestone.icon} {nextMilestone.label}
+            </span>
+          </div>
+          <div className="h-4 bg-slate-100 rounded-full overflow-hidden relative">
+            <div
+              className="h-full bg-gradient-to-r from-orange-400 to-red-500 rounded-full transition-all duration-1000 relative"
+              style={{ width: `${progressToNext}%` }}
+            >
+              <div className="absolute right-0 top-0 bottom-0 w-3 bg-white/30 rounded-full animate-pulse" />
+            </div>
+          </div>
+          <div className="flex justify-between mt-1">
+            <span className="text-xs text-slate-400">{streak}天</span>
+            <span className="text-xs text-slate-400">还差 {Math.max(0, nextMilestone.days - streak)} 天</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Milestone Timeline */}
+      <div className="flex items-center gap-1 overflow-x-auto py-2">
+        {milestones.map((m) => {
+          const achieved = streak >= m.days;
+          return (
+            <div
+              key={m.days}
+              className={`flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-xl transition-all ${
+                achieved ? 'bg-gradient-to-b from-amber-50 to-orange-50 border border-amber-200' : 'bg-slate-50 border border-slate-100 opacity-50'
+              }`}
+            >
+              <span className={`text-xl ${achieved ? '' : 'grayscale'}`}>{m.icon}</span>
+              <span className={`text-xs mt-1 font-medium ${achieved ? 'text-amber-700' : 'text-slate-400'}`}>{m.label}</span>
+              <span className="text-[10px] text-slate-400">{m.reward}</span>
+              {achieved && <span className="text-[10px] text-green-600 font-bold mt-0.5">✓</span>}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Streak Tips */}
+      <div className="p-3 bg-orange-50 rounded-xl border border-orange-100">
+        <p className="text-xs text-orange-700">
+          {streak === 0 && '💡 今天开始打卡吧！坚持7天就能获得第一个成就。'}
+          {streak > 0 && streak < 7 && `💪 再坚持 ${7 - streak} 天就能获得「新手坚持」成就！加油！`}
+          {streak >= 7 && streak < 30 && `🌟 已经坚持了${streak}天，向30天「月度达人」冲刺！`}
+          {streak >= 30 && streak < 100 && `🔥 ${streak}天连续学习，你的坚持正在创造奇迹！`}
+          {streak >= 100 && `👑 ${streak}天！你是真正的词汇王者！`}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ===== 里程碑庆祝弹窗 =====
+function MilestoneCelebration({ days, onClose }: { days: number; onClose: () => void }) {
+  const milestoneInfo: Record<number, { icon: string; title: string; desc: string; reward: string }> = {
+    7: { icon: '🌟', title: '7天连续打卡！', desc: '你已经养成了学习习惯', reward: '+50 金币' },
+    14: { icon: '💎', title: '14天坚持！', desc: '习惯已经扎根，继续保持', reward: '+100 金币' },
+    30: { icon: '🏆', title: '月度达人！', desc: '一个月的坚持，了不起！', reward: '+200 金币 + 稀有徽章' },
+    50: { icon: '🔥', title: '50天挑战达成！', desc: '半百坚持，你就是学习榜样', reward: '+300 金币' },
+    100: { icon: '👑', title: '百日王者！', desc: '100天连续学习，传说般的存在', reward: '+500 金币 + 限定头像框' },
+    365: { icon: '🎖️', title: '年度传奇！', desc: '365天不间断，你创造了传奇', reward: '+1000 金币 + 永久勋章' },
+  };
+
+  const info = milestoneInfo[days] || { icon: '🎉', title: `${days}天打卡！`, desc: '恭喜达成里程碑', reward: '+金币奖励' };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fadeIn" onClick={onClose}>
+      <div className="bg-white rounded-3xl p-8 max-w-sm mx-4 text-center shadow-2xl transform animate-bounceIn" onClick={e => e.stopPropagation()}>
+        {/* Celebration Animation */}
+        <div className="relative">
+          <div className="text-7xl mb-4 animate-bounce">{info.icon}</div>
+          <div className="absolute -top-4 -left-4 text-2xl animate-ping opacity-50">✨</div>
+          <div className="absolute -top-2 -right-6 text-2xl animate-ping opacity-50 delay-100">🎉</div>
+          <div className="absolute top-8 -right-4 text-xl animate-ping opacity-50 delay-200">⭐</div>
+        </div>
+        
+        <h2 className="text-2xl font-black text-slate-800 mb-2">{info.title}</h2>
+        <p className="text-slate-500 mb-4">{info.desc}</p>
+        
+        <div className="p-3 bg-gradient-to-r from-amber-50 to-yellow-50 rounded-xl border border-amber-200 mb-6">
+          <p className="text-sm font-bold text-amber-700">🎁 奖励: {info.reward}</p>
+        </div>
+
+        <button
+          onClick={onClose}
+          className="px-8 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold rounded-xl hover:shadow-lg transition-all"
+        >
+          太棒了！继续努力
+        </button>
       </div>
     </div>
   );
