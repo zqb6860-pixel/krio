@@ -12,7 +12,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
-import { CET4_WORDS, CET6_WORDS, IELTS_WORDS, POSTGRAD_WORDS } from '../data/wordlists';
+import { CET4_WORDS, CET6_WORDS, IELTS_WORDS, POSTGRAD_WORDS, MIDDLE_SCHOOL_WORDS, HIGH_SCHOOL_WORDS, TOEFL_WORDS, GRE_WORDS, TEM4_WORDS, TEM8_WORDS, DAILY_WORDS, BUSINESS_WORDS } from '../data/wordlists';
 import { importWordBatch } from '../src/services/wordImporter';
 
 const prisma = new PrismaClient();
@@ -58,6 +58,70 @@ const BOOKS: BookConfig[] = [
     category: 'postgraduate',
     difficulty: 4,
     words: POSTGRAD_WORDS,
+  },
+  {
+    key: 'middle',
+    name: '初中英语词汇',
+    description: '初中阶段必备基础词汇500词',
+    category: 'middle_school',
+    difficulty: 1,
+    words: MIDDLE_SCHOOL_WORDS,
+  },
+  {
+    key: 'high',
+    name: '高中英语词汇（高考3500精选）',
+    description: '高中阶段核心词汇600词，适合高考备考',
+    category: 'high_school',
+    difficulty: 2,
+    words: HIGH_SCHOOL_WORDS,
+  },
+  {
+    key: 'toefl',
+    name: 'TOEFL 托福学术词汇',
+    description: '托福考试学术类高频词汇400词',
+    category: 'toefl',
+    difficulty: 4,
+    words: TOEFL_WORDS,
+  },
+  {
+    key: 'gre',
+    name: 'GRE 高级词汇',
+    description: 'GRE考试高难度核心词汇300词',
+    category: 'gre',
+    difficulty: 5,
+    words: GRE_WORDS,
+  },
+  {
+    key: 'tem4',
+    name: '英语专四词汇',
+    description: '英语专业四级考试核心词汇300词',
+    category: 'tem4',
+    difficulty: 3,
+    words: TEM4_WORDS,
+  },
+  {
+    key: 'tem8',
+    name: '英语专八词汇',
+    description: '英语专业八级考试高频词汇250词',
+    category: 'tem8',
+    difficulty: 5,
+    words: TEM8_WORDS,
+  },
+  {
+    key: 'daily',
+    name: '日常口语高频词',
+    description: '日常会话最常用词汇400词，适合口语提升',
+    category: 'daily',
+    difficulty: 1,
+    words: DAILY_WORDS,
+  },
+  {
+    key: 'business',
+    name: '商务英语词汇',
+    description: '职场商务英语核心词汇300词',
+    category: 'business',
+    difficulty: 3,
+    words: BUSINESS_WORDS,
   },
 ];
 

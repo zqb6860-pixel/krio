@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { prisma } from '../index';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { generateExercises } from '../services/exerciseGenerator';
 
 export const levelRouter = Router();
 levelRouter.use(authMiddleware);
@@ -74,6 +75,30 @@ levelRouter.get('/:id', async (req: AuthRequest, res: Response) => {
     });
 
     if (!level) return res.status(404).json({ error: '关卡不存在' });
+
+    // If level has no pre-made exercises, auto-generate from word database
+    if (!level.exercises || level.exercises.length === 0) {
+      const generated = await generateExercises(5);
+      if (generated.length > 0) {
+        return res.json({
+          ...level,
+          exercises: generated.map((ex, i) => ({
+            id: `gen_${i}`,
+            levelId: level.id,
+            wordId: ex.wordId,
+            type: ex.type,
+            question: ex.question,
+            options: ex.options,
+            correctAnswer: ex.correctAnswer,
+            explanation: null,
+            audioUrl: null,
+            imageUrl: null,
+            order: i,
+          })),
+        });
+      }
+    }
+
     res.json(level);
   } catch (error) {
     res.status(500).json({ error: '获取关卡详情失败' });
