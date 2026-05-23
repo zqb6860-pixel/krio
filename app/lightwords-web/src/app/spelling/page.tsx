@@ -5,7 +5,8 @@ import { api } from '@/lib/api';
 import { useApi } from '@/hooks/useApi';
 import { AudioButton } from '@/components/common/AudioButton';
 
-type Mode = 'practice' | 'dictation';
+type Mode = 'practice' | 'hideAll' | 'hideVowel' | 'hideConsonant' | 'randomHide';
+const VOWELS = new Set(['a', 'e', 'i', 'o', 'u']);
 
 export default function SpellingPage() {
   const { data: words, loading } = useApi(() => api.getTodayWords(), []);
@@ -26,6 +27,7 @@ export default function SpellingPage() {
   const [mode, setMode] = useState<Mode>('practice');
   const [shakeAnimation, setShakeAnimation] = useState(false);
   const [wrongFlash, setWrongFlash] = useState(false);
+  const [randomVisible, setRandomVisible] = useState<boolean[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const totalWords = words?.length || 0;
@@ -47,7 +49,11 @@ export default function SpellingPage() {
     setWordStartTime(Date.now());
     setShakeAnimation(false);
     setWrongFlash(false);
-  }, [currentIndex]);
+    // Generate random visibility for randomHide mode
+    if (targetWord) {
+      setRandomVisible(targetWord.split('').map(() => Math.random() > 0.4));
+    }
+  }, [currentIndex, targetWord]);
 
   // Handle keyboard input
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -89,14 +95,12 @@ export default function SpellingPage() {
     const newTyped = [...typedChars, e.key];
     setTotalKeystrokes(prev => prev + 1);
 
-    if (mode === 'dictation') {
-      // === DICTATION MODE: check each char immediately, wrong = shake & clear ===
+    if (mode !== 'practice') {
+      // === DICTATION MODES: check each char immediately, wrong = shake & clear ===
       const charIndex = newTyped.length - 1;
       const isCharCorrect = e.key.toLowerCase() === targetWord[charIndex]?.toLowerCase();
 
       if (!isCharCorrect) {
-        // Wrong! Trigger shake animation and clear
-        setCorrectKeystrokes(prev => prev); // no change
         setShakeAnimation(true);
         setWrongFlash(true);
         setTimeout(() => {
@@ -107,11 +111,9 @@ export default function SpellingPage() {
         return;
       }
 
-      // Correct char
       setTypedChars(newTyped);
       setCorrectKeystrokes(prev => prev + 1);
 
-      // Check if word is complete
       if (newTyped.length === targetWord.length) {
         setIsWordComplete(true);
         setCorrectCount(prev => prev + 1);
@@ -123,7 +125,7 @@ export default function SpellingPage() {
         const responseTime = Date.now() - wordStartTime;
         try { api.recordAnswer(word.id, true, responseTime); } catch {}
       }
-    } else {
+    } else if (mode === 'practice') {
       // === PRACTICE MODE: show each char result, allow completing full word ===
       setTypedChars(newTyped);
 
@@ -231,18 +233,21 @@ export default function SpellingPage() {
       <div className="absolute top-0 right-6 mt-12 flex items-center gap-3">
         {/* Mode Toggle */}
         <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
-          <button
-            onClick={() => { setMode('practice'); setTypedChars([]); }}
-            className={`px-3 py-1.5 rounded-md text-[11px] font-medium transition-all ${mode === 'practice' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 dark:text-slate-400'}`}
-          >
-            练习
-          </button>
-          <button
-            onClick={() => { setMode('dictation'); setTypedChars([]); }}
-            className={`px-3 py-1.5 rounded-md text-[11px] font-medium transition-all ${mode === 'dictation' ? 'bg-white dark:bg-slate-700 text-purple-600 dark:text-purple-400 shadow-sm' : 'text-slate-500 dark:text-slate-400'}`}
-          >
-            默写
-          </button>
+          {([
+            { key: 'practice', label: '练习' },
+            { key: 'hideAll', label: '全隐藏' },
+            { key: 'hideVowel', label: '隐元音' },
+            { key: 'hideConsonant', label: '隐辅音' },
+            { key: 'randomHide', label: '随机' },
+          ] as { key: Mode; label: string }[]).map((m) => (
+            <button
+              key={m.key}
+              onClick={() => { setMode(m.key); setTypedChars([]); }}
+              className={`px-2.5 py-1.5 rounded-md text-[11px] font-medium transition-all ${mode === m.key ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 dark:text-slate-400'}`}
+            >
+              {m.label}
+            </button>
+          ))}
         </div>
         <button
           onClick={() => setShowPhonetic(prev => !prev)}
@@ -294,10 +299,21 @@ export default function SpellingPage() {
               );
             })
           ) : (
-            // DICTATION MODE: word is hidden, show typed chars + remaining underscores
+            // DICTATION MODES: hide letters based on mode
             targetWord.split('').map((char: string, i: number) => {
               const isTyped = i < typedChars.length;
               const isCurrent = i === typedChars.length && !isWordComplete;
+              // Determine if letter should be visible (as hint)
+              let isVisible = false;
+              if (mode === 'hideVowel') {
+                isVisible = !VOWELS.has(char.toLowerCase());
+              } else if (mode === 'hideConsonant') {
+                isVisible = VOWELS.has(char.toLowerCase());
+              } else if (mode === 'randomHide') {
+                isVisible = randomVisible[i] ?? false;
+              }
+              // hideAll: isVisible stays false
+
               return (
                 <span
                   key={i}
@@ -306,18 +322,20 @@ export default function SpellingPage() {
                       ? 'text-green-500 dark:text-green-400'
                       : isCurrent
                       ? 'text-blue-400 dark:text-blue-500 border-b-4 border-blue-400 dark:border-blue-500 pb-1'
+                      : isVisible
+                      ? 'text-slate-400 dark:text-slate-500'
                       : 'text-slate-200 dark:text-slate-700'
                   }`}
                 >
-                  {isTyped ? typedChars[i] : '_'}
+                  {isTyped ? typedChars[i] : isVisible ? char : '_'}
                 </span>
               );
             })
           )}
         </div>
 
-        {/* Word length hint in dictation mode */}
-        {mode === 'dictation' && !isWordComplete && (
+        {/* Word length hint in dictation modes */}
+        {mode !== 'practice' && !isWordComplete && (
           <p className="text-xs text-slate-400 dark:text-slate-500">
             {targetWord.length} 个字母
             {typedChars.length > 0 && <span className="ml-2 text-blue-500">已输入 {typedChars.length}/{targetWord.length}</span>}
@@ -336,8 +354,8 @@ export default function SpellingPage() {
           </div>
         )}
 
-        {/* Wrong feedback in dictation mode (shake hint) */}
-        {mode === 'dictation' && wrongFlash && (
+        {/* Wrong feedback in dictation modes (shake hint) */}
+        {mode !== 'practice' && wrongFlash && (
           <p className="text-sm text-red-500 dark:text-red-400 animate-fadeIn font-medium">
             ✗ 输错了，重新开始
           </p>
@@ -383,7 +401,7 @@ export default function SpellingPage() {
         {/* Typing cursor indicator (when idle) */}
         {!isWordComplete && typedChars.length === 0 && !wrongFlash && (
           <p className="text-xs text-slate-400 dark:text-slate-500 animate-pulse">
-            {mode === 'dictation' ? '根据释义和发音，输入单词...' : '开始输入...'}
+            {mode !== 'practice' ? '根据释义和发音，输入单词...' : '开始输入...'}
           </p>
         )}
       </div>
