@@ -154,6 +154,15 @@ body {
   100% { transform: translateY(-100px) rotate(720deg); opacity: 0; }
 }
 
+@keyframes headShake {
+  0% { transform: translateX(0); }
+  6.5% { transform: translateX(-6px) rotateY(-9deg); }
+  18.5% { transform: translateX(5px) rotateY(7deg); }
+  31.5% { transform: translateX(-3px) rotateY(-5deg); }
+  43.5% { transform: translateX(2px) rotateY(3deg); }
+  50% { transform: translateX(0); }
+}
+
 @keyframes pulse-glow {
   0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
   50% { box-shadow: 0 0 0 12px rgba(59, 130, 246, 0); }
