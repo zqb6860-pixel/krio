@@ -30,9 +30,10 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/data ./data
-COPY docker-entrypoint.sh ./docker-entrypoint.sh
-RUN chmod +x ./docker-entrypoint.sh
+COPY docker-entrypoint.sh /usr/local/bin/app-entrypoint.sh
+RUN chmod +x /usr/local/bin/app-entrypoint.sh
 
 EXPOSE 3001
 
-CMD ["./docker-entrypoint.sh"]
+ENTRYPOINT []
+CMD ["sh", "/usr/local/bin/app-entrypoint.sh"]
