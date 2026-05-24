@@ -11,6 +11,35 @@
     "web:dev": "npm run dev --workspace=app/lightwords-web",
     "web:build": "npm run build --workspace=app/lightwords-web",
     "app:start": "npm run start --workspace=app/lightwords-app",
-    "shared:build": "npm run build --workspace=shared"
+    "shared:build": "npm run build --workspace=shared",
+    "lint": "eslint . --fix",
+    "lint:check": "eslint .",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css}\"",
+    "prepare": "husky",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,css,md}": [
+      "prettier --write"
+    ]
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.59.4",
+    "@typescript-eslint/parser": "^8.59.4",
+    "@vitest/coverage-v8": "^4.1.7",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.8.3",
+    "vitest": "^4.1.7"
   }
 }

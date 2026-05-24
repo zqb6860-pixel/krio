@@ -1,8 +1,11 @@
 import { Router, Request, Response } from 'express';
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { prisma } from '../index';
-import { generateToken, generateRefreshToken } from '../middleware/auth';
+import { generateToken, generateRefreshToken, verifyRefreshToken } from '../middleware/auth';
+import { authLimiter, registerLimiter, smsLimiter } from '../middleware/rateLimit';
+import { logger } from '../utils/logger';
 
 export const authRouter = Router();
 
@@ -38,7 +41,6 @@ const wechatLoginSchema = z.object({
   code: z.string().min(1, '微信授权码不能为空'),
 });
 
-
 // ===== Helper: Create user response =====
 function buildUserResponse(user: any) {
   return {
@@ -57,7 +59,15 @@ function buildUserResponse(user: any) {
 }
 
 // ===== Helper: Create new user with defaults =====
-async function createNewUser(data: { email?: string; phone?: string; username: string; passwordHash?: string; avatar?: string; wechatOpenId?: string; wechatUnionId?: string }) {
+async function createNewUser(data: {
+  email?: string;
+  phone?: string;
+  username: string;
+  passwordHash?: string;
+  avatar?: string;
+  wechatOpenId?: string;
+  wechatUnionId?: string;
+}) {
   const user = await prisma.user.create({
     data: {
       ...data,
@@ -86,9 +96,8 @@ async function createNewUser(data: { email?: string; phone?: string; username: s
   return user;
 }
 
-
 // ===== POST /api/auth/register (Email) =====
-authRouter.post('/register', async (req: Request, res: Response) => {
+authRouter.post('/register', registerLimiter, async (req: Request, res: Response) => {
   try {
     const body = registerSchema.parse(req.body);
 
@@ -96,9 +105,7 @@ authRouter.post('/register', async (req: Request, res: Response) => {
       where: { OR: [{ email: body.email }, { username: body.username }] },
     });
     if (existing) {
-      return res.status(409).json({
-        error: existing.email === body.email ? '邮箱已被注册' : '用户名已被占用',
-      });
+      return res.status(409).json({ error: '该邮箱或用户名已被注册' });
     }
 
     const passwordHash = await bcrypt.hash(body.password, 12);
@@ -112,14 +119,13 @@ authRouter.post('/register', async (req: Request, res: Response) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors[0].message });
     }
-    console.error('Register error:', error);
+    logger.error({ err: error }, 'Register error');
     res.status(500).json({ error: '注册失败，请稍后重试' });
   }
 });
 
-
 // ===== POST /api/auth/login (Email + Password) =====
-authRouter.post('/login', async (req: Request, res: Response) => {
+authRouter.post('/login', authLimiter, async (req: Request, res: Response) => {
   try {
     const body = loginSchema.parse(req.body);
 
@@ -145,14 +151,13 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: '请输入有效的邮箱和密码' });
     }
-    console.error('Login error:', error);
+    logger.error({ err: error }, 'Login error');
     res.status(500).json({ error: '登录失败，请稍后重试' });
   }
 });
 
-
 // ===== POST /api/auth/sms/send - 发送短信验证码 =====
-authRouter.post('/sms/send', async (req: Request, res: Response) => {
+authRouter.post('/sms/send', smsLimiter, async (req: Request, res: Response) => {
   try {
     const body = sendCodeSchema.parse(req.body);
 
@@ -168,7 +173,7 @@ authRouter.post('/sms/send', async (req: Request, res: Response) => {
     }
 
     // 生成6位随机验证码
-    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const code = String(crypto.randomInt(100000, 1000000));
 
     // 存储验证码 (5分钟过期)
     await prisma.smsCode.create({
@@ -182,7 +187,7 @@ authRouter.post('/sms/send', async (req: Request, res: Response) => {
 
     // TODO: 接入真实短信服务商 (阿里云SMS / 腾讯云SMS)
     // 开发环境直接返回验证码 (生产环境删除此行)
-    console.log(`[SMS] 验证码发送到 ${body.phone}: ${code}`);
+    logger.info({ phone: body.phone }, 'SMS code sent');
 
     res.json({
       success: true,
@@ -194,11 +199,10 @@ authRouter.post('/sms/send', async (req: Request, res: Response) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors[0].message });
     }
-    console.error('Send SMS error:', error);
+    logger.error({ err: error }, 'Send SMS error');
     res.status(500).json({ error: '验证码发送失败，请稍后重试' });
   }
 });
-
 
 // ===== POST /api/auth/sms/login - 手机号验证码登录 (自动注册) =====
 authRouter.post('/sms/login', async (req: Request, res: Response) => {
@@ -251,14 +255,13 @@ authRouter.post('/sms/login', async (req: Request, res: Response) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors[0].message });
     }
-    console.error('Phone login error:', error);
+    logger.error({ err: error }, 'Phone login error');
     res.status(500).json({ error: '登录失败，请稍后重试' });
   }
 });
 
-
 // ===== POST /api/auth/phone/register - 手机号注册 (带用户名) =====
-authRouter.post('/phone/register', async (req: Request, res: Response) => {
+authRouter.post('/phone/register', registerLimiter, async (req: Request, res: Response) => {
   try {
     const body = phoneRegisterSchema.parse(req.body);
 
@@ -288,9 +291,7 @@ authRouter.post('/phone/register', async (req: Request, res: Response) => {
       where: { OR: [{ phone: body.phone }, { username: body.username }] },
     });
     if (existing) {
-      return res.status(409).json({
-        error: existing.phone === body.phone ? '该手机号已注册' : '用户名已被占用',
-      });
+      return res.status(409).json({ error: '该手机号或用户名已被注册' });
     }
 
     const passwordHash = body.password ? await bcrypt.hash(body.password, 12) : undefined;
@@ -308,11 +309,10 @@ authRouter.post('/phone/register', async (req: Request, res: Response) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors[0].message });
     }
-    console.error('Phone register error:', error);
+    logger.error({ err: error }, 'Phone register error');
     res.status(500).json({ error: '注册失败，请稍后重试' });
   }
 });
-
 
 // ===== POST /api/auth/wechat/login - 微信登录 =====
 authRouter.post('/wechat/login', async (req: Request, res: Response) => {
@@ -344,7 +344,7 @@ authRouter.post('/wechat/login', async (req: Request, res: Response) => {
     const tokenData = await tokenRes.json();
 
     if (tokenData.errcode) {
-      console.error('WeChat token error:', tokenData);
+      logger.error({ data: tokenData }, 'WeChat token error');
       return res.status(401).json({ error: '微信授权失败，请重试' });
     }
 
@@ -356,17 +356,14 @@ authRouter.post('/wechat/login', async (req: Request, res: Response) => {
     const wechatUser = await userInfoRes.json();
 
     if (wechatUser.errcode) {
-      console.error('WeChat userinfo error:', wechatUser);
+      logger.error({ data: wechatUser }, 'WeChat userinfo error');
       return res.status(401).json({ error: '获取微信用户信息失败' });
     }
 
     // 查找已绑定用户
     let user = await prisma.user.findFirst({
       where: {
-        OR: [
-          { wechatOpenId: openid },
-          ...(unionid ? [{ wechatUnionId: unionid }] : []),
-        ],
+        OR: [{ wechatOpenId: openid }, ...(unionid ? [{ wechatUnionId: unionid }] : [])],
       },
       include: { settings: true },
     });
@@ -403,16 +400,16 @@ authRouter.post('/wechat/login', async (req: Request, res: Response) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors[0].message });
     }
-    console.error('WeChat login error:', error);
+    logger.error({ err: error }, 'WeChat login error');
     res.status(500).json({ error: '微信登录失败，请稍后重试' });
   }
 });
 
-
 // ===== GET /api/auth/wechat/qrcode - 获取微信登录二维码参数 =====
 authRouter.get('/wechat/qrcode', async (_req: Request, res: Response) => {
   const WECHAT_APP_ID = process.env.WECHAT_APP_ID;
-  const WECHAT_REDIRECT_URI = process.env.WECHAT_REDIRECT_URI || 'http://localhost:3000/api/auth/wechat/callback';
+  const WECHAT_REDIRECT_URI =
+    process.env.WECHAT_REDIRECT_URI || 'http://localhost:3000/api/auth/wechat/callback';
 
   if (!WECHAT_APP_ID) {
     return res.status(503).json({
@@ -422,7 +419,7 @@ authRouter.get('/wechat/qrcode', async (_req: Request, res: Response) => {
   }
 
   // 生成随机state防止CSRF
-  const state = Math.random().toString(36).slice(2, 15);
+  const state = crypto.randomBytes(16).toString('hex');
 
   res.json({
     configured: true,
@@ -434,7 +431,6 @@ authRouter.get('/wechat/qrcode', async (_req: Request, res: Response) => {
   });
 });
 
-
 // ===== POST /api/auth/refresh =====
 authRouter.post('/refresh', async (req: Request, res: Response) => {
   try {
@@ -443,14 +439,7 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Missing refresh token' });
     }
 
-    const jwt = await import('jsonwebtoken');
-    const secret = process.env.JWT_SECRET || 'lightwords-secret-key-change-in-production';
-    const payload = jwt.default.verify(refreshToken, secret) as { userId: string; type?: string };
-
-    if (payload.type !== 'refresh') {
-      return res.status(401).json({ error: 'Invalid token type' });
-    }
-
+    const payload = verifyRefreshToken(refreshToken);
     const newToken = generateToken(payload.userId);
     res.json({ token: newToken });
   } catch {
