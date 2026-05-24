@@ -16,7 +16,9 @@
     "import:all": "tsx scripts/importAll.ts",
     "import:cet6": "tsx scripts/importAll.ts cet6",
     "import:ielts": "tsx scripts/importAll.ts ielts",
-    "import:postgrad": "tsx scripts/importAll.ts postgrad"
+    "import:postgrad": "tsx scripts/importAll.ts postgrad",
+    "lint": "eslint src/ --fix",
+    "lint:check": "eslint src/"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
