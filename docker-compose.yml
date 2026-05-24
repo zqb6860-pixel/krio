@@ -29,6 +29,7 @@ services:
       PORT: "3001"
       CORS_ORIGIN: "${CORS_ORIGIN:?CORS_ORIGIN is required}"
       NODE_ENV: "production"
+      IMPORT_BOOKS: "${IMPORT_BOOKS:-}"
     ports:
       - "3001:3001"
     depends_on:

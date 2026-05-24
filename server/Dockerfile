@@ -16,6 +16,7 @@ RUN npx prisma generate
 COPY tsconfig.docker.json ./tsconfig.json
 COPY src ./src/
 COPY data ./data/
+COPY scripts ./scripts/
 RUN npx tsc
 
 FROM node:20-slim AS runner
@@ -29,7 +30,9 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/data ./data
+COPY docker-entrypoint.sh ./docker-entrypoint.sh
+RUN chmod +x ./docker-entrypoint.sh
 
 EXPOSE 3001
 
-CMD ["sh", "-c", "echo 'Waiting for database...' && sleep 2 && npx prisma db push --skip-generate --accept-data-loss && echo 'Database ready!' && node dist/src/index.js"]
+CMD ["./docker-entrypoint.sh"]

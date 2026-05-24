@@ -5,15 +5,16 @@ import { api } from '@/lib/api';
 import { useApi } from '@/hooks/useApi';
 
 /**
- * Qwerty Learner 风格的打字练习页面
- * - 全屏专注打字界面
+ * Qwerty Learner 风格的打字练习页面（含默写模式）
+ * - 打字模式: 显示单词，照着打
+ * - 默写模式: 隐藏字母，凭记忆/发音拼写
+ * - 全屏专注界面
  * - 实时 WPM / 正确率 / 连击
  * - 章节制词库进度
  * - 输错整词重来机制
- * - 音标和释义实时显示
  */
 
-type TypingMode = 'normal' | 'zen' | 'speed';
+type TypingMode = 'normal' | 'zen' | 'speed' | 'dictation_all' | 'dictation_vowel' | 'dictation_consonant' | 'dictation_random';
 
 interface ChapterWord {
   id: string;
@@ -23,6 +24,8 @@ interface ChapterWord {
   partOfSpeech: string;
 }
 
+const VOWELS = new Set(['a', 'e', 'i', 'o', 'u']);
+
 function speakWord(text: string) {
   if (typeof window === 'undefined' || !window.speechSynthesis) return;
   window.speechSynthesis.cancel();
@@ -31,6 +34,11 @@ function speakWord(text: string) {
   utterance.rate = 0.85;
   window.speechSynthesis.speak(utterance);
 }
+
+function isDictationMode(mode: TypingMode): boolean {
+  return mode.startsWith('dictation_');
+}
+
 
 export default function TypingPage() {
   const { data: books } = useApi(() => api.getWordBooks(), []);
@@ -47,6 +55,7 @@ export default function TypingPage() {
   const [typedChars, setTypedChars] = useState<string[]>([]);
   const [isWordWrong, setIsWordWrong] = useState(false);
   const [shakeAnim, setShakeAnim] = useState(false);
+  const [randomVisible, setRandomVisible] = useState<boolean[]>([]);
 
   // Stats
   const [correctWords, setCorrectWords] = useState(0);
@@ -63,6 +72,7 @@ export default function TypingPage() {
   const words = chapterData?.words || [];
   const currentWord = words[currentWordIndex];
   const targetWord = currentWord?.word || '';
+
 
   // Calculate real-time WPM
   const elapsed = startTime > 0 ? (Date.now() - startTime) / 1000 / 60 : 0;
@@ -107,10 +117,18 @@ export default function TypingPage() {
     }
   }, [currentWordIndex, isStarted]);
 
+  // Generate random visibility for dictation_random mode
+  useEffect(() => {
+    if (targetWord && mode === 'dictation_random') {
+      setRandomVisible(targetWord.split('').map(() => Math.random() > 0.4));
+    }
+  }, [currentWordIndex, targetWord, mode]);
+
   // Focus container
   useEffect(() => {
     if (isStarted) containerRef.current?.focus();
   }, [isStarted]);
+
 
   // Handle key input
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -126,7 +144,6 @@ export default function TypingPage() {
 
     if (e.key === 'Tab') {
       e.preventDefault();
-      // Skip word
       handleWordComplete(false);
       return;
     }
@@ -151,20 +168,20 @@ export default function TypingPage() {
         handleWordComplete(true);
       }
     } else {
-      // Qwerty Learner 核心: 输错整词重来
+      // 输错整词重来
       setIsWordWrong(true);
       setShakeAnim(true);
-      setTypedChars([...typedChars, e.key]); // Show wrong char briefly
+      setTypedChars([...typedChars, e.key]);
 
       setTimeout(() => {
         setTypedChars([]);
         setShakeAnim(false);
         setIsWordWrong(false);
-        // Re-pronounce
         speakWord(targetWord);
       }, 400);
     }
   }, [isStarted, currentWord, typedChars, targetWord, isComplete]);
+
 
   const handleWordComplete = (correct: boolean) => {
     if (correct) {
@@ -177,13 +194,11 @@ export default function TypingPage() {
       setCombo(0);
     }
 
-    // Move to next word
     if (currentWordIndex < words.length - 1) {
       setCurrentWordIndex((i) => i + 1);
       setTypedChars([]);
       setIsWordWrong(false);
     } else {
-      // Chapter complete
       setIsComplete(true);
       submitSession();
     }
@@ -226,6 +241,16 @@ export default function TypingPage() {
     }
   };
 
+
+  // Helper: determine if a letter should be visible in dictation mode
+  const isLetterVisible = (char: string, index: number): boolean => {
+    if (mode === 'dictation_all') return false;
+    if (mode === 'dictation_vowel') return !VOWELS.has(char.toLowerCase()); // hide vowels, show consonants
+    if (mode === 'dictation_consonant') return VOWELS.has(char.toLowerCase()); // hide consonants, show vowels
+    if (mode === 'dictation_random') return randomVisible[index] ?? false;
+    return true;
+  };
+
   // ===== Setup Screen =====
   if (!isStarted) {
     return (
@@ -234,7 +259,7 @@ export default function TypingPage() {
           <div className="flex items-center gap-3 mb-6">
             <span className="text-3xl">⌨️</span>
             <div>
-              <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Qwerty 打字练习</h2>
+              <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">打字 & 默写练习</h2>
               <p className="text-sm text-slate-500 dark:text-slate-400">在打字中背单词，建立英文肌肉记忆</p>
             </div>
           </div>
@@ -261,10 +286,13 @@ export default function TypingPage() {
               </div>
             </div>
 
-            {/* Mode Selection */}
+
+            {/* Mode Selection - Two Groups */}
             <div>
               <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">练习模式</label>
-              <div className="flex gap-3">
+              {/* Typing modes */}
+              <p className="text-xs text-slate-400 dark:text-slate-500 mb-2">打字练习（显示单词，照着打）</p>
+              <div className="flex gap-3 mb-4">
                 {([
                   { key: 'normal', label: '标准模式', desc: '显示音标和释义', icon: '📖' },
                   { key: 'zen', label: '专注模式', desc: '极简界面，无干扰', icon: '🧘' },
@@ -285,7 +313,32 @@ export default function TypingPage() {
                   </button>
                 ))}
               </div>
+              {/* Dictation modes */}
+              <p className="text-xs text-slate-400 dark:text-slate-500 mb-2">默写模式（隐藏字母，凭记忆拼写）</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {([
+                  { key: 'dictation_all', label: '全隐藏', desc: '完全凭记忆', icon: '✍️' },
+                  { key: 'dictation_vowel', label: '隐元音', desc: '隐藏 a/e/i/o/u', icon: '🔤' },
+                  { key: 'dictation_consonant', label: '隐辅音', desc: '隐藏辅音字母', icon: '🅰️' },
+                  { key: 'dictation_random', label: '随机隐藏', desc: '随机隐藏部分', icon: '🎲' },
+                ] as { key: TypingMode; label: string; desc: string; icon: string }[]).map((m) => (
+                  <button
+                    key={m.key}
+                    onClick={() => setMode(m.key)}
+                    className={`p-3 rounded-xl border-2 text-center transition-all ${
+                      mode === m.key
+                        ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
+                        : 'border-slate-200 dark:border-slate-700 hover:border-orange-300'
+                    }`}
+                  >
+                    <span className="text-xl block mb-1">{m.icon}</span>
+                    <p className="text-xs font-semibold text-slate-800 dark:text-slate-100">{m.label}</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">{m.desc}</p>
+                  </button>
+                ))}
+              </div>
             </div>
+
 
             {/* Chapter */}
             <div>
@@ -306,7 +359,7 @@ export default function TypingPage() {
               disabled={!selectedBook || isLoading}
               className="w-full py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-lg font-bold rounded-xl hover:shadow-lg hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? '加载中...' : '开始打字练习 ⌨️'}
+              {isLoading ? '加载中...' : isDictationMode(mode) ? '开始默写练习 ✍️' : '开始打字练习 ⌨️'}
             </button>
           </div>
         </div>
@@ -318,6 +371,7 @@ export default function TypingPage() {
             <li>• 看到单词后，直接用键盘输入单词拼写</li>
             <li>• <span className="text-red-500 font-medium">输错任何字母会清空重来</span>，确保形成正确的肌肉记忆</li>
             <li>• 每个单词自动播放发音，帮助建立音-形联结</li>
+            <li>• <strong>默写模式</strong>下字母被隐藏，根据释义和发音凭记忆输入</li>
             <li>• 按 <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-[10px]">Tab</kbd> 跳过当前单词</li>
             <li>• 按 <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-[10px]">Esc</kbd> 清空已输入</li>
           </ul>
@@ -325,6 +379,7 @@ export default function TypingPage() {
       </div>
     );
   }
+
 
   // ===== Completion Screen =====
   if (isComplete) {
@@ -335,7 +390,7 @@ export default function TypingPage() {
         <div className="glass-card p-8 text-center w-full animate-fadeIn">
           <span className="text-5xl">🎉</span>
           <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-4">章节完成！</h3>
-          <p className="text-slate-500 dark:text-slate-400 mt-2">第 {chapter + 1} 章 · {words.length} 个单词</p>
+          <p className="text-slate-500 dark:text-slate-400 mt-2">第 {chapter + 1} 章 · {words.length} 个单词 · {isDictationMode(mode) ? '默写模式' : '打字模式'}</p>
 
           <div className="grid grid-cols-2 gap-4 mt-6">
             <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
@@ -373,8 +428,10 @@ export default function TypingPage() {
     );
   }
 
+
   // ===== Main Typing Interface =====
   const isZen = mode === 'zen';
+  const isDictation = isDictationMode(mode);
 
   return (
     <div
@@ -393,7 +450,7 @@ export default function TypingPage() {
               ← 退出
             </button>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400">章节</span>
+              <span className="text-xs text-slate-400">{isDictation ? '默写' : '章节'}</span>
               <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{chapter + 1}</span>
             </div>
             <div className="w-32 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
@@ -419,10 +476,11 @@ export default function TypingPage() {
         </div>
       )}
 
+
       {/* Main Typing Area */}
       <div className={`flex-1 flex flex-col items-center justify-center gap-6 ${isZen ? '' : 'px-4'}`}>
-        {/* Upcoming words preview */}
-        {!isZen && (
+        {/* Upcoming words preview (only for typing modes) */}
+        {!isZen && !isDictation && (
           <div className="flex items-center gap-3 opacity-40">
             {words.slice(currentWordIndex + 1, currentWordIndex + 4).map((w, i) => (
               <span key={i} className="text-sm text-slate-400 dark:text-slate-500">{w.word}</span>
@@ -438,33 +496,66 @@ export default function TypingPage() {
           </div>
         )}
 
-        {/* Word Display - Character by character */}
+        {/* Word Display */}
         <div className={`flex items-center justify-center gap-0.5 flex-wrap min-h-[4rem] transition-all ${
           shakeAnim ? 'animate-[headShake_0.3s_ease-in-out]' : ''
         }`}>
-          {targetWord.split('').map((char, i) => {
-            let status: 'pending' | 'correct' | 'wrong' | 'current' = 'pending';
-            if (i < typedChars.length) {
-              status = typedChars[i].toLowerCase() === char.toLowerCase() ? 'correct' : 'wrong';
-            } else if (i === typedChars.length) {
-              status = 'current';
-            }
+          {isDictation ? (
+            // Dictation mode: hide letters based on mode
+            targetWord.split('').map((char, i) => {
+              const isTyped = i < typedChars.length;
+              const isCurrent = i === typedChars.length;
+              const visible = isLetterVisible(char, i);
 
-            return (
-              <span
-                key={i}
-                className={`inline-flex items-center justify-center text-5xl md:text-6xl font-mono font-bold w-12 md:w-14 transition-all duration-100 ${
-                  status === 'correct' ? 'text-green-500 dark:text-green-400 scale-95' :
-                  status === 'wrong' ? 'text-red-500 dark:text-red-400 scale-110' :
-                  status === 'current' ? 'text-blue-500 dark:text-blue-400 border-b-3 border-blue-500' :
-                  'text-slate-300 dark:text-slate-600'
-                }`}
-              >
-                {status === 'wrong' ? typedChars[i] : char}
-              </span>
-            );
-          })}
+              return (
+                <span
+                  key={i}
+                  className={`inline-flex items-center justify-center text-5xl md:text-6xl font-mono font-bold w-12 md:w-14 border-b-2 mx-0.5 pb-1 transition-all duration-100 ${
+                    isTyped
+                      ? 'text-green-500 dark:text-green-400 border-green-400'
+                      : isCurrent
+                      ? 'border-blue-500 dark:border-blue-400'
+                      : 'border-slate-300 dark:border-slate-600'
+                  }`}
+                >
+                  {isTyped ? typedChars[i] : visible ? <span className="text-slate-300 dark:text-slate-600">{char}</span> : '\u00A0'}
+                </span>
+              );
+            })
+          ) : (
+            // Normal typing mode: show all letters
+            targetWord.split('').map((char, i) => {
+              let status: 'pending' | 'correct' | 'wrong' | 'current' = 'pending';
+              if (i < typedChars.length) {
+                status = typedChars[i].toLowerCase() === char.toLowerCase() ? 'correct' : 'wrong';
+              } else if (i === typedChars.length) {
+                status = 'current';
+              }
+
+              return (
+                <span
+                  key={i}
+                  className={`inline-flex items-center justify-center text-5xl md:text-6xl font-mono font-bold w-12 md:w-14 transition-all duration-100 ${
+                    status === 'correct' ? 'text-green-500 dark:text-green-400 scale-95' :
+                    status === 'wrong' ? 'text-red-500 dark:text-red-400 scale-110' :
+                    status === 'current' ? 'text-blue-500 dark:text-blue-400 border-b-3 border-blue-500' :
+                    'text-slate-300 dark:text-slate-600'
+                  }`}
+                >
+                  {status === 'wrong' ? typedChars[i] : char}
+                </span>
+              );
+            })
+          )}
         </div>
+
+
+        {/* Word length hint in dictation mode */}
+        {isDictation && !isWordWrong && typedChars.length === 0 && (
+          <p className="text-xs text-slate-400 dark:text-slate-500">
+            {targetWord.length} 个字母 · 根据释义和发音输入单词
+          </p>
+        )}
 
         {/* Phonetic */}
         {!isZen && currentWord?.phonetic && (
@@ -484,8 +575,8 @@ export default function TypingPage() {
           <p className="text-sm text-red-500 dark:text-red-400 animate-fadeIn">✗ 输错了，整词重来！</p>
         )}
 
-        {/* Idle hint */}
-        {!isWordWrong && typedChars.length === 0 && (
+        {/* Idle hint (non-dictation) */}
+        {!isDictation && !isWordWrong && typedChars.length === 0 && (
           <p className="text-xs text-slate-400 dark:text-slate-500 animate-pulse">开始输入...</p>
         )}
       </div>
