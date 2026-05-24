@@ -29,11 +29,13 @@ model User {
   wechatOpenId  String?  @unique
   wechatUnionId String?  @unique
 
-  settings        UserSettings?
-  learningRecords LearningRecord[]
-  checkins        Checkin[]
-  achievements    UserAchievement[]
-  levelResults    LevelResult[]
+  settings         UserSettings?
+  learningRecords  LearningRecord[]
+  checkins         Checkin[]
+  achievements     UserAchievement[]
+  levelResults     LevelResult[]
+  typingSessions   TypingSession[]
+  listeningSessions ListeningSession[]
 
   @@map("users")
 }
@@ -254,6 +256,60 @@ model UserAchievement {
 
   @@unique([userId, achievementId])
   @@map("user_achievements")
+}
+
+// ==================== 打字练习统计 ====================
+
+model TypingSession {
+  id            String   @id @default(cuid())
+  userId        String
+  bookId        String?  // 使用的词库
+  mode          String   @default("normal") // normal | zen | speed | chapter
+  wordsTyped    Int      @default(0)
+  correctWords  Int      @default(0)
+  totalChars    Int      @default(0)
+  correctChars  Int      @default(0)
+  wpm           Float    @default(0) // 每分钟词数
+  accuracy      Float    @default(0) // 正确率 0-100
+  maxCombo      Int      @default(0)
+  duration      Int      @default(0) // 秒
+  chapterIndex  Int      @default(0) // 当前章节
+  startedAt     DateTime @default(now())
+  completedAt   DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("typing_sessions")
+}
+
+// ==================== 听力练习 ====================
+
+model ListeningSession {
+  id            String   @id @default(cuid())
+  userId        String
+  mode          String   @default("word") // word | sentence | dictation
+  totalItems    Int      @default(0)
+  correctItems  Int      @default(0)
+  duration      Int      @default(0) // 秒
+  startedAt     DateTime @default(now())
+  completedAt   DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("listening_sessions")
+}
+
+// ==================== 单词族谱/派生树 ====================
+
+model WordFamily {
+  id          String @id @default(cuid())
+  rootWord    String // 词根原型
+  rootMeaning String // 词根含义
+  origin      String // 来源语言
+  members     String @default("[]") // JSON: [{word, relation, meaning}]
+
+  @@unique([rootWord])
+  @@map("word_families")
 }
 
 // ==================== 闯关系统 ====================
