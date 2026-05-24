@@ -1,11 +1,14 @@
 #!/bin/sh
-set -e
 
 echo "Waiting for database..."
 sleep 2
 
 echo "Pushing database schema..."
 npx prisma db push --skip-generate --accept-data-loss
+if [ $? -ne 0 ]; then
+  echo "ERROR: Failed to push database schema. Exiting."
+  exit 1
+fi
 echo "Database ready!"
 
 # Auto-import word books if IMPORT_BOOKS is set
@@ -19,16 +22,17 @@ if [ -n "$IMPORT_BOOKS" ]; then
   echo ""
 
   if [ "$IMPORT_BOOKS" = "all" ]; then
-    node dist/scripts/importAll.js
+    node dist/scripts/importAll.js || echo "WARNING: Word import failed (non-fatal), continuing..."
   else
     # Split comma-separated values and import each
-    IFS=',' 
+    OLD_IFS="$IFS"
+    IFS=','
     for book in $IMPORT_BOOKS; do
       book=$(echo "$book" | tr -d ' ')
       echo "Importing: $book"
-      node dist/scripts/importAll.js "$book"
+      node dist/scripts/importAll.js "$book" || echo "WARNING: Import of $book failed, continuing..."
     done
-    unset IFS
+    IFS="$OLD_IFS"
   fi
 
   echo ""
