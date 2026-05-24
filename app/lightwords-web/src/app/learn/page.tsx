@@ -6,12 +6,11 @@ import { useApi } from '@/hooks/useApi';
 import { useAuth } from '@/contexts/AuthContext';
 import { AudioButton } from '@/components/common/AudioButton';
 
-// 生成选择题选项：从其他单词的释义中随机取3个作为干扰项
+// 生成选择题选项
 function generateQuizOptions(words: any[], currentIndex: number): { text: string; isCorrect: boolean }[] {
   const currentWord = words[currentIndex];
   const correctMeaning = currentWord?.meanings?.[0]?.translation || currentWord?.meanings?.[0]?.definition || '未知';
 
-  // 从其他单词获取干扰选项
   const otherMeanings: string[] = [];
   for (let i = 0; i < words.length; i++) {
     if (i === currentIndex) continue;
@@ -21,11 +20,8 @@ function generateQuizOptions(words: any[], currentIndex: number): { text: string
     }
   }
 
-  // 随机选取3个干扰项
   const shuffled = otherMeanings.sort(() => Math.random() - 0.5);
   const distractors = shuffled.slice(0, 3);
-
-  // 如果干扰项不够3个，补充一些通用的
   const fallbacks = ['使变化', '承认；接受', '增加；添加', '决定；判断', '考虑；认为', '表达；表示'];
   while (distractors.length < 3) {
     const fb = fallbacks[distractors.length];
@@ -33,33 +29,28 @@ function generateQuizOptions(words: any[], currentIndex: number): { text: string
     else break;
   }
 
-  // 组合正确答案和干扰项，然后随机打乱
-  const options = [
+  return [
     { text: correctMeaning, isCorrect: true },
     ...distractors.map(d => ({ text: d, isCorrect: false })),
   ].sort(() => Math.random() - 0.5);
-
-  return options;
 }
+
 
 export default function LearnPage() {
   const { refreshUser } = useAuth();
   const { data: words, loading, error } = useApi(() => api.getTodayWords(), []);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [learnedCount, setLearnedCount] = useState(0);
-  const [showAnswer, setShowAnswer] = useState(false);
-  const [activeTab, setActiveTab] = useState<'context' | 'root' | 'derivation' | 'mnemonic'>('context');
+  const [showDetail, setShowDetail] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [flipAnimation, setFlipAnimation] = useState(false);
   const startTimeRef = useRef<number>(Date.now());
-  // 选择题相关状态
   const [quizOptions, setQuizOptions] = useState<{ text: string; isCorrect: boolean }[]>([]);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [quizAnswered, setQuizAnswered] = useState(false);
 
   const totalWords = words?.length || 0;
   const currentWord = words?.[currentIndex];
-
 
   // 每次切换单词时生成新选项
   useEffect(() => {
@@ -71,6 +62,7 @@ export default function LearnPage() {
     }
   }, [currentIndex, words]);
 
+
   // 键盘快捷键
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -79,63 +71,55 @@ export default function LearnPage() {
         case ' ':
         case 'Enter':
           e.preventDefault();
-          if (quizAnswered && !showAnswer) handleReveal();
+          if (quizAnswered && !showDetail) setShowDetail(true);
           break;
         case '1':
           if (!quizAnswered && quizOptions.length >= 1) handleQuizSelect(0);
-          else if (showAnswer) handleAction('unknown');
+          else if (showDetail) handleAction('unknown');
           break;
         case '2':
           if (!quizAnswered && quizOptions.length >= 2) handleQuizSelect(1);
-          else if (showAnswer) handleAction('vague');
+          else if (showDetail) handleAction('vague');
           break;
         case '3':
           if (!quizAnswered && quizOptions.length >= 3) handleQuizSelect(2);
-          else if (showAnswer) handleAction('known');
+          else if (showDetail) handleAction('known');
           break;
         case '4':
           if (!quizAnswered && quizOptions.length >= 4) handleQuizSelect(3);
           break;
         case 'ArrowLeft':
           e.preventDefault();
-          if (currentIndex > 0) { navigateTo(currentIndex - 1); }
+          if (currentIndex > 0) navigateTo(currentIndex - 1);
           break;
         case 'ArrowRight':
           e.preventDefault();
-          if (currentIndex < totalWords - 1) { navigateTo(currentIndex + 1); }
+          if (currentIndex < totalWords - 1) navigateTo(currentIndex + 1);
           break;
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showAnswer, currentIndex, totalWords, quizAnswered, quizOptions]);
+  }, [showDetail, currentIndex, totalWords, quizAnswered, quizOptions]);
+
 
   const navigateTo = (index: number) => {
     setFlipAnimation(true);
     setTimeout(() => {
       setCurrentIndex(index);
-      setShowAnswer(false);
-      setActiveTab('context');
+      setShowDetail(false);
       setFlipAnimation(false);
       setSelectedOption(null);
       setQuizAnswered(false);
     }, 150);
   };
 
-  const handleReveal = () => {
-    startTimeRef.current = Date.now();
-    setShowAnswer(true);
-  };
-
-  // 选择题选项点击处理
   const handleQuizSelect = async (optionIndex: number) => {
     if (quizAnswered || !currentWord) return;
     setSelectedOption(optionIndex);
     setQuizAnswered(true);
     const isCorrect = quizOptions[optionIndex]?.isCorrect || false;
     const responseTimeMs = Date.now() - startTimeRef.current;
-
-    // 记录答题结果
     try {
       await api.recordAnswer(currentWord.id, isCorrect, responseTimeMs);
       if (isCorrect) setLearnedCount(c => c + 1);
@@ -155,7 +139,7 @@ export default function LearnPage() {
     if (currentIndex < totalWords - 1) {
       navigateTo(currentIndex + 1);
     } else {
-      setShowAnswer(false);
+      setShowDetail(false);
     }
   }, [currentWord, currentIndex, totalWords, submitting]);
 
@@ -202,8 +186,9 @@ export default function LearnPage() {
     );
   }
 
+
   // Completed state
-  if (currentIndex >= totalWords - 1 && !showAnswer && learnedCount > 0 && currentIndex > 0) {
+  if (currentIndex >= totalWords - 1 && !showDetail && learnedCount > 0 && currentIndex > 0) {
     return (
       <div className="max-w-4xl mx-auto flex items-center justify-center h-[60vh]">
         <div className="glass-card p-8 text-center animate-bounceIn">
@@ -219,12 +204,12 @@ export default function LearnPage() {
     );
   }
 
-
   const word = currentWord;
   const meanings = word?.meanings || [];
   const roots = word?.roots || [];
   const examples = word?.examples || [];
   const collocations = word?.collocations || [];
+
 
   return (
     <div className="max-w-4xl mx-auto space-y-5">
@@ -245,26 +230,22 @@ export default function LearnPage() {
         </div>
       </div>
 
+
       {/* Word Card */}
       <div className={`glass-card overflow-hidden transition-all duration-300 ${flipAnimation ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
-        {/* Word Header - Gradient */}
+        {/* Word Header */}
         <div className="p-6 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600 text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3" />
           <div className="relative z-10 flex items-center justify-between">
             <div>
               <div className="flex items-center gap-3">
                 <h2 className="text-3xl font-bold">{word?.word}</h2>
-                {/* 考试频次标注 (参考不背单词) */}
-                {word?.frequency && (
-                  <span className="px-2 py-0.5 bg-red-500/80 text-white text-[10px] rounded-full font-medium backdrop-blur-sm">
-                    🔥 高频词
-                  </span>
-                )}
-                {word?.examTags && (
+                {/* 词性标签 */}
+                {meanings.length > 0 && (
                   <div className="flex gap-1">
-                    {(typeof word.examTags === 'string' ? word.examTags.split(',') : word.examTags || []).map((tag: string) => (
-                      <span key={tag} className="px-1.5 py-0.5 bg-white/20 text-[10px] rounded font-medium backdrop-blur-sm">
-                        {tag.trim()}
+                    {meanings.map((m: any, i: number) => (
+                      <span key={i} className="px-2 py-0.5 bg-white/20 text-[11px] rounded-full font-medium backdrop-blur-sm">
+                        {m.partOfSpeech}
                       </span>
                     ))}
                   </div>
@@ -279,7 +260,7 @@ export default function LearnPage() {
 
         {/* Content */}
         <div className="p-6 space-y-4">
-          {!showAnswer ? (
+          {!showDetail ? (
             <div className="py-4">
               {/* 选择题模式 */}
               {!quizAnswered ? (
@@ -316,21 +297,20 @@ export default function LearnPage() {
                       {quizOptions[selectedOption!]?.isCorrect ? '回答正确！' : '答错了~'}
                     </p>
                   </div>
-                  {/* 显示所有选项的正误 */}
+
+
+                  {/* 显示所有选项正误 */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {quizOptions.map((opt, i) => (
-                      <div
-                        key={i}
-                        className={`p-3 rounded-xl border-2 transition-all ${
-                          opt.isCorrect
-                            ? 'border-green-400 dark:border-green-600 bg-green-50 dark:bg-green-900/20'
-                            : i === selectedOption && !opt.isCorrect
-                            ? 'border-red-400 dark:border-red-600 bg-red-50 dark:bg-red-900/20'
-                            : 'border-slate-100 dark:border-slate-700 opacity-50'
-                        }`}
-                      >
+                      <div key={i} className={`p-3 rounded-xl border-2 transition-all ${
+                        opt.isCorrect
+                          ? 'border-green-400 dark:border-green-600 bg-green-50 dark:bg-green-900/20'
+                          : i === selectedOption && !opt.isCorrect
+                          ? 'border-red-400 dark:border-red-600 bg-red-50 dark:bg-red-900/20'
+                          : 'border-slate-100 dark:border-slate-700 opacity-50'
+                      }`}>
                         <div className="flex items-start gap-2">
-                          <span className={`flex-shrink-0 text-sm ${opt.isCorrect ? '✓ text-green-600' : i === selectedOption ? '✗ text-red-500' : ''}`}>
+                          <span className="flex-shrink-0 text-sm">
                             {opt.isCorrect ? '✓' : i === selectedOption && !opt.isCorrect ? '✗' : ' '}
                           </span>
                           <span className="text-sm text-slate-700 dark:text-slate-200">{opt.text}</span>
@@ -338,9 +318,22 @@ export default function LearnPage() {
                       </div>
                     ))}
                   </div>
+
+                  {/* 答题后立即显示一条例句预览（参考不背单词） */}
+                  {examples.length > 0 && (
+                    <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border-l-4 border-indigo-400 dark:border-indigo-500">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium">📝 例句</span>
+                        <AudioButton audioUrl={examples[0]?.audioUrl} word={examples[0]?.sentence} size="sm" variant="ghost" />
+                      </div>
+                      <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed" dangerouslySetInnerHTML={{ __html: highlightWord(examples[0]?.sentence || '', word?.word || '') }} />
+                      <p className="text-sm text-slate-500 dark:text-slate-400 mt-1.5">{examples[0]?.translation}</p>
+                    </div>
+                  )}
+
                   {/* 按钮：查看详情 / 下一个 */}
                   <div className="flex gap-3 justify-center">
-                    <button onClick={handleReveal}
+                    <button onClick={() => setShowDetail(true)}
                       className="px-6 py-2.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl font-medium hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors text-sm">
                       📖 查看详细释义
                     </button>
@@ -353,50 +346,34 @@ export default function LearnPage() {
                 </div>
               )}
             </div>
+
+
           ) : (
             <>
-              {/* Meanings */}
-              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/30 animate-fadeIn">
-                {meanings.map((m: any, i: number) => (
-                  <div key={i} className={i > 0 ? 'mt-2.5 pt-2.5 border-t border-blue-100 dark:border-blue-800/30' : ''}>
-                    <span className="text-xs text-blue-600 dark:text-blue-400 font-medium bg-blue-100 dark:bg-blue-800/40 px-1.5 py-0.5 rounded">{m.partOfSpeech}</span>
-                    <p className="text-lg font-semibold text-slate-800 dark:text-slate-100 mt-1">{m.translation}</p>
-                    {m.definition && <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5 italic">{m.definition}</p>}
-                  </div>
-                ))}
-              </div>
+              {/* 详细释义区域 */}
+              <div className="space-y-4">
+                {/* 词性+释义 (参考不背单词的释义展示) */}
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/30">
+                  {meanings.map((m: any, i: number) => (
+                    <div key={i} className={i > 0 ? 'mt-3 pt-3 border-t border-blue-100 dark:border-blue-800/30' : ''}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs text-blue-600 dark:text-blue-400 font-semibold bg-blue-100 dark:bg-blue-800/40 px-2 py-0.5 rounded">{m.partOfSpeech}</span>
+                      </div>
+                      <p className="text-lg font-semibold text-slate-800 dark:text-slate-100">{m.translation}</p>
+                      {m.definition && <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5 italic">{m.definition}</p>}
+                    </div>
+                  ))}
+                </div>
 
-              {/* Tab Navigation (参考不背单词的Tab设计) */}
-              <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
-                {[
-                  { key: 'context', label: '语境例句', icon: '📝', show: examples.length > 0 },
-                  { key: 'root', label: '词根词缀', icon: '🌱', show: roots.length > 0 },
-                  { key: 'derivation', label: '派生词族', icon: '🌳', show: roots.length > 0 },
-                  { key: 'mnemonic', label: '记忆技巧', icon: '💡', show: true },
-                ].filter(t => t.show).map((tab) => (
-                  <button
-                    key={tab.key}
-                    onClick={() => setActiveTab(tab.key as any)}
-                    className={`flex-1 px-3 py-2 text-xs rounded-lg transition-all font-medium ${
-                      activeTab === tab.key
-                        ? 'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-300 shadow-sm'
-                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-                    }`}
-                  >
-                    {tab.icon} {tab.label}
-                  </button>
-                ))}
-              </div>
-
-
-              {/* Tab Content */}
-              <div className="min-h-[140px] animate-fadeIn">
-                {/* 语境例句 (参考不背单词的真实语境) */}
-                {activeTab === 'context' && examples.length > 0 && (
+                {/* 例句区域（核心增强）—— 参考不背单词的真实语境例句 */}
+                {examples.length > 0 && (
                   <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">📝 真实语境例句</span>
+                      <span className="text-[11px] text-slate-400 dark:text-slate-500">({examples.length}条)</span>
+                    </div>
                     {examples.map((e: any, i: number) => {
                       const sourceTag = getSourceTag(e.source);
-                      const highlighted = highlightWord(e.sentence, word?.word || '');
                       return (
                         <div key={i} className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border-l-4 border-blue-400 dark:border-blue-500 group hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                           <div className="flex items-center justify-between gap-2 mb-2">
@@ -404,180 +381,66 @@ export default function LearnPage() {
                               <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${sourceTag.color}`}>
                                 {sourceTag.icon} {sourceTag.label}
                               </span>
-                              {e.sourceYear && <span className="text-[11px] text-slate-400">{e.sourceYear}</span>}
                             </div>
-                            {/* 例句朗读按钮 */}
                             <AudioButton audioUrl={e.audioUrl} word={e.sentence} size="sm" variant="ghost" />
                           </div>
-                          <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed" dangerouslySetInnerHTML={{ __html: highlighted }} />
+                          <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed" dangerouslySetInnerHTML={{ __html: highlightWord(e.sentence, word?.word || '') }} />
                           <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 border-t border-slate-200 dark:border-slate-700 pt-2">{e.translation}</p>
                           {e.source && <p className="text-[11px] text-slate-400 mt-1.5">—— {e.source}</p>}
                         </div>
                       );
                     })}
-                    {/* 搭配用法 */}
-                    {collocations.length > 0 && (
-                      <div className="mt-3 p-4 bg-purple-50/50 dark:bg-purple-900/10 rounded-xl border border-purple-100 dark:border-purple-800/30">
-                        <p className="text-xs font-medium text-purple-700 dark:text-purple-300 mb-2">🔗 常见搭配</p>
-                        <div className="flex flex-wrap gap-2">
-                          {collocations.map((c: any, i: number) => (
-                            <span key={i} className="text-xs px-2.5 py-1 bg-white dark:bg-slate-800 border border-purple-200 dark:border-purple-700 rounded-lg text-purple-700 dark:text-purple-300">
-                              {c.phrase} <span className="text-slate-400">- {c.translation}</span>
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 )}
 
+
+                {/* 搭配用法 */}
+                {collocations.length > 0 && (
+                  <div className="p-4 bg-purple-50/50 dark:bg-purple-900/10 rounded-xl border border-purple-100 dark:border-purple-800/30">
+                    <p className="text-xs font-medium text-purple-700 dark:text-purple-300 mb-2">🔗 常见搭配</p>
+                    <div className="flex flex-wrap gap-2">
+                      {collocations.map((c: any, i: number) => (
+                        <span key={i} className="text-xs px-2.5 py-1 bg-white dark:bg-slate-800 border border-purple-200 dark:border-purple-700 rounded-lg text-purple-700 dark:text-purple-300">
+                          {c.phrase} <span className="text-slate-400">- {c.translation}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* 词根词缀 */}
-                {activeTab === 'root' && roots.length > 0 && (
-                  <div className="space-y-4">
-                    <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border border-green-100 dark:border-green-800/30">
-                      <div className="flex items-center gap-2 mb-3">
-                        <span className="text-lg">🌱</span>
-                        <h4 className="text-sm font-bold text-green-800 dark:text-green-300">词源拆解</h4>
-                      </div>
-                      <div className="bg-white/70 dark:bg-slate-800/70 rounded-lg p-4">
-                        <p className="font-mono font-bold text-base text-slate-800 dark:text-slate-100 mb-3">{word?.word}</p>
-                        <div className="border-l-2 border-green-300 dark:border-green-600 pl-4 space-y-3">
-                          {roots.map((r: any, i: number) => (
-                            <div key={i} className="relative">
-                              <div className="absolute -left-[21px] top-2 w-2.5 h-2.5 rounded-full bg-green-400 dark:bg-green-500 border-2 border-white dark:border-slate-800" />
-                              <div className="flex items-start gap-2">
-                                <span className="text-[10px] px-1.5 py-0.5 bg-green-100 dark:bg-green-800/40 text-green-700 dark:text-green-300 rounded font-medium flex-shrink-0">
-                                  {r.type === 'prefix' ? '前缀' : r.type === 'suffix' ? '后缀' : '词根'}
-                                </span>
-                                <div>
-                                  <p className="text-sm text-slate-800 dark:text-slate-200">
-                                    <span className="font-bold text-green-600 dark:text-green-400">{r.root}</span> = {r.meaning}
-                                  </p>
-                                  <p className="text-[11px] text-slate-400 mt-0.5">来源: {r.origin}</p>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="mt-3 pt-3 border-t border-green-100 dark:border-green-800/30">
-                          <p className="text-xs text-green-700 dark:text-green-400">
-                            💡 {roots.map((r: any) => `"${r.meaning}"`).join(' + ')} → {meanings[0]?.translation || ''}
+                {roots.length > 0 && (
+                  <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border border-green-100 dark:border-green-800/30">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-sm font-semibold text-green-800 dark:text-green-300">🌱 词根词缀</span>
+                    </div>
+                    <div className="border-l-2 border-green-300 dark:border-green-600 pl-4 space-y-2">
+                      {roots.map((r: any, i: number) => (
+                        <div key={i} className="flex items-start gap-2">
+                          <span className="text-[10px] px-1.5 py-0.5 bg-green-100 dark:bg-green-800/40 text-green-700 dark:text-green-300 rounded font-medium flex-shrink-0">
+                            {r.type === 'prefix' ? '前缀' : r.type === 'suffix' ? '后缀' : '词根'}
+                          </span>
+                          <p className="text-sm text-slate-700 dark:text-slate-200">
+                            <span className="font-bold text-green-600 dark:text-green-400">{r.root}</span> = {r.meaning}
                           </p>
                         </div>
-                      </div>
+                      ))}
                     </div>
+                    <p className="text-xs text-green-700 dark:text-green-400 mt-3 pt-2 border-t border-green-100 dark:border-green-800/30">
+                      💡 {roots.map((r: any) => `"${r.meaning}"`).join(' + ')} → {meanings[0]?.translation || ''}
+                    </p>
                   </div>
                 )}
-
-
-                {/* 派生词族 (参考不背单词的派生树) */}
-                {activeTab === 'derivation' && roots.length > 0 && (
-                  <div className="space-y-4">
-                    <div className="p-4 bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800/30">
-                      <div className="flex items-center gap-2 mb-3">
-                        <span className="text-lg">🌳</span>
-                        <h4 className="text-sm font-bold text-indigo-800 dark:text-indigo-300">派生词族树</h4>
-                        <span className="text-[10px] text-indigo-400 dark:text-indigo-500">同根词联想记忆</span>
-                      </div>
-                      {/* Derivation Tree Visual */}
-                      <div className="bg-white/70 dark:bg-slate-800/70 rounded-lg p-4">
-                        {/* Center word */}
-                        <div className="text-center mb-4">
-                          <span className="inline-block px-4 py-2 bg-indigo-500 text-white rounded-xl font-bold text-sm shadow-md shadow-indigo-500/25">
-                            {word?.word}
-                          </span>
-                        </div>
-                        {/* Root connections */}
-                        {roots.map((r: any, i: number) => {
-                          const relatedWords = typeof r.relatedWords === 'string' ? (() => { try { return JSON.parse(r.relatedWords); } catch { return []; } })() : (r.relatedWords || []);
-                          if (relatedWords.length === 0) return null;
-                          return (
-                            <div key={i} className="mb-3 last:mb-0">
-                              <div className="flex items-center gap-2 mb-2">
-                                <div className="h-px flex-1 bg-indigo-200 dark:bg-indigo-700" />
-                                <span className="text-[11px] px-2 py-0.5 bg-indigo-100 dark:bg-indigo-800/50 text-indigo-600 dark:text-indigo-300 rounded-full font-medium">
-                                  词根 {r.root} ({r.meaning})
-                                </span>
-                                <div className="h-px flex-1 bg-indigo-200 dark:bg-indigo-700" />
-                              </div>
-                              <div className="flex flex-wrap gap-2 justify-center">
-                                {relatedWords.map((w: string) => (
-                                  <span key={w} className="px-3 py-1.5 bg-white dark:bg-slate-700 border border-indigo-200 dark:border-indigo-700 rounded-lg text-sm text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors cursor-default shadow-sm">
-                                    {w}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          );
-                        })}
-                        {/* If no related words found */}
-                        {roots.every((r: any) => {
-                          const rw = typeof r.relatedWords === 'string' ? (() => { try { return JSON.parse(r.relatedWords); } catch { return []; } })() : (r.relatedWords || []);
-                          return rw.length === 0;
-                        }) && (
-                          <p className="text-center text-sm text-slate-400 dark:text-slate-500 py-4">暂无派生词数据，学习更多后将自动关联</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
 
                 {/* 记忆技巧 */}
-                {activeTab === 'mnemonic' && (
-                  <div className="space-y-4">
-                    <div className="p-4 bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 rounded-xl border border-amber-100 dark:border-amber-800/30">
-                      <div className="flex items-center gap-2 mb-3">
-                        <span className="text-lg">💡</span>
-                        <h4 className="text-sm font-bold text-amber-800 dark:text-amber-300">记忆技巧</h4>
-                      </div>
-                      <p className="text-sm text-amber-900 dark:text-amber-200 leading-relaxed">
-                        {generateMnemonic(word?.word || '', roots, meanings)}
-                      </p>
-                    </div>
-                    {roots.length > 0 && (
-                      <div className="p-4 bg-purple-50/70 dark:bg-purple-900/10 rounded-xl border border-purple-100 dark:border-purple-800/30">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-lg">🧠</span>
-                          <h4 className="text-sm font-bold text-purple-800 dark:text-purple-300">词缀规律</h4>
-                        </div>
-                        <div className="space-y-2">
-                          {roots.map((r: any, i: number) => (
-                            <p key={i} className="text-sm text-purple-700 dark:text-purple-300">
-                              <span className="font-bold">{r.type === 'prefix' ? '前缀' : r.type === 'suffix' ? '后缀' : '词根'} {r.root}-</span>
-                              {' '}常表示「{r.meaning}」(来自{r.origin})
-                            </p>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {/* 近义词/反义词 (参考不背单词) */}
-                    {(word?.synonyms || word?.antonyms) && (
-                      <div className="p-4 bg-cyan-50/70 dark:bg-cyan-900/10 rounded-xl border border-cyan-100 dark:border-cyan-800/30">
-                        <p className="text-xs font-medium text-cyan-700 dark:text-cyan-300 mb-2">📎 关联词汇</p>
-                        <div className="space-y-2">
-                          {word.synonyms && (
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-[11px] text-slate-400">近义:</span>
-                              {(typeof word.synonyms === 'string' ? word.synonyms.split(',') : word.synonyms).map((s: string) => (
-                                <span key={s} className="text-xs px-2 py-0.5 bg-cyan-100 dark:bg-cyan-800/30 text-cyan-700 dark:text-cyan-300 rounded-full">{s.trim()}</span>
-                              ))}
-                            </div>
-                          )}
-                          {word.antonyms && (
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-[11px] text-slate-400">反义:</span>
-                              {(typeof word.antonyms === 'string' ? word.antonyms.split(',') : word.antonyms).map((s: string) => (
-                                <span key={s} className="text-xs px-2 py-0.5 bg-rose-100 dark:bg-rose-800/30 text-rose-700 dark:text-rose-300 rounded-full">{s.trim()}</span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
+                <div className="p-4 bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 rounded-xl border border-amber-100 dark:border-amber-800/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">💡 记忆技巧</span>
                   </div>
-                )}
+                  <p className="text-sm text-amber-900 dark:text-amber-200 leading-relaxed">
+                    {generateMnemonic(word?.word || '', roots, meanings)}
+                  </p>
+                </div>
               </div>
             </>
           )}
@@ -585,7 +448,7 @@ export default function LearnPage() {
 
 
         {/* Action Buttons */}
-        {showAnswer && (
+        {showDetail && (
           <div className="p-4 border-t border-slate-100 dark:border-slate-700 flex gap-3">
             <button onClick={() => handleAction('unknown')} disabled={submitting}
               className="flex-1 py-3.5 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 font-medium rounded-xl transition-all disabled:opacity-50 active:scale-95 group">
@@ -608,6 +471,7 @@ export default function LearnPage() {
           </div>
         )}
       </div>
+
 
       {/* Navigation */}
       <div className="flex items-center justify-between">
@@ -634,6 +498,7 @@ export default function LearnPage() {
 }
 
 
+
 // ===== Helper Functions =====
 
 function getSourceTag(source: string): { icon: string; label: string; color: string } {
@@ -644,7 +509,6 @@ function getSourceTag(source: string): { icon: string; label: string; color: str
   if (s.includes('考研') || s.includes('四级') || s.includes('六级') || s.includes('高考') || s.includes('cet') || s.includes('真题')) return { icon: '📋', label: '考试真题', color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' };
   if (s.includes('文学') || s.includes('novel') || s.includes('book')) return { icon: '📚', label: '文学作品', color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' };
   if (s.includes('演讲') || s.includes('speech') || s.includes('ted')) return { icon: '🎤', label: 'TED演讲', color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300' };
-  if (s.includes('纪录片') || s.includes('documentary')) return { icon: '🎞️', label: '纪录片', color: 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300' };
   return { icon: '📄', label: '真实语境', color: 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300' };
 }
 
