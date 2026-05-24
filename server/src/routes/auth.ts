@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { prisma } from '../index';
@@ -97,9 +98,7 @@ authRouter.post('/register', registerLimiter, async (req: Request, res: Response
       where: { OR: [{ email: body.email }, { username: body.username }] },
     });
     if (existing) {
-      return res.status(409).json({
-        error: existing.email === body.email ? '邮箱已被注册' : '用户名已被占用',
-      });
+      return res.status(409).json({ error: '该邮箱或用户名已被注册' });
     }
 
     const passwordHash = await bcrypt.hash(body.password, 12);
@@ -169,7 +168,7 @@ authRouter.post('/sms/send', smsLimiter, async (req: Request, res: Response) => 
     }
 
     // 生成6位随机验证码
-    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const code = String(crypto.randomInt(100000, 1000000));
 
     // 存储验证码 (5分钟过期)
     await prisma.smsCode.create({
@@ -289,9 +288,7 @@ authRouter.post('/phone/register', registerLimiter, async (req: Request, res: Re
       where: { OR: [{ phone: body.phone }, { username: body.username }] },
     });
     if (existing) {
-      return res.status(409).json({
-        error: existing.phone === body.phone ? '该手机号已注册' : '用户名已被占用',
-      });
+      return res.status(409).json({ error: '该手机号或用户名已被注册' });
     }
 
     const passwordHash = body.password ? await bcrypt.hash(body.password, 12) : undefined;
@@ -423,7 +420,7 @@ authRouter.get('/wechat/qrcode', async (_req: Request, res: Response) => {
   }
 
   // 生成随机state防止CSRF
-  const state = Math.random().toString(36).slice(2, 15);
+  const state = crypto.randomBytes(16).toString('hex');
 
   res.json({
     configured: true,
