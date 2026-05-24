@@ -31,7 +31,8 @@ typingRouter.post('/session', async (req: AuthRequest, res: Response) => {
     } = req.body;
 
     if (!wordsTyped || !duration) {
-      return res.status(400).json({ error: '缺少必要参数' });
+      res.status(400).json({ error: '缺少必要参数' });
+      return;
     }
 
     const session = await prisma.typingSession.create({
@@ -174,7 +175,8 @@ typingRouter.get('/chapter-words', async (req: AuthRequest, res: Response) => {
     const size = parseInt(req.query.size as string) || 20;
 
     if (!bookId) {
-      return res.status(400).json({ error: '请指定词库' });
+      res.status(400).json({ error: '请指定词库' });
+      return;
     }
 
     const skip = chapter * size;

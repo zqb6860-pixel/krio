@@ -57,7 +57,8 @@ listeningRouter.get('/words', async (req: AuthRequest, res: Response) => {
     }
 
     if (words.length === 0) {
-      return res.json({ words: [], exercises: [] });
+      res.json({ words: [], exercises: [] });
+      return;
     }
 
     if (mode === 'sentence') {
@@ -78,7 +79,8 @@ listeningRouter.get('/words', async (req: AuthRequest, res: Response) => {
           })),
         }));
 
-      return res.json({ mode: 'sentence', exercises });
+      res.json({ mode: 'sentence', exercises });
+      return;
     }
 
     // 听音选词模式: 生成四选一选项
@@ -121,7 +123,8 @@ listeningRouter.post('/session', async (req: AuthRequest, res: Response) => {
     const { mode, totalItems, correctItems, duration } = req.body;
 
     if (!totalItems || !duration) {
-      return res.status(400).json({ error: '缺少必要参数' });
+      res.status(400).json({ error: '缺少必要参数' });
+      return;
     }
 
     const session = await prisma.listeningSession.create({
