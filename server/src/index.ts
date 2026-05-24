@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import { PrismaClient } from '@prisma/client';
 import { authRouter } from './routes/auth';
 import { wordRouter } from './routes/words';
@@ -15,12 +16,20 @@ export const prisma = new PrismaClient();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware
+// Validate CORS_ORIGIN in production
+const corsOrigin = process.env.CORS_ORIGIN;
+if (process.env.NODE_ENV === 'production' && !corsOrigin) {
+  console.error('FATAL: CORS_ORIGIN is required in production');
+  process.exit(1);
+}
+
+// Security middleware
+app.use(helmet());
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
+  origin: corsOrigin || 'http://localhost:3000',
   credentials: true,
 }));
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
 // Health check
 app.get('/api/health', (_, res) => {
