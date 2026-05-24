@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 import Link from 'next/link';
@@ -10,7 +10,7 @@ const BATCH_SIZE_OPTIONS = [5, 10, 15, 20, 30];
 export default function SettingsPage() {
   const { user, refreshUser } = useAuth();
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [savedField, setSavedField] = useState<string | null>(null);
   const [settings, setSettings] = useState({
     dailyWordGoal: 30,
     dailyTimeGoal: 30,
@@ -23,6 +23,7 @@ export default function SettingsPage() {
   });
   const [useCustomBatch, setUseCustomBatch] = useState(false);
   const [customBatchValue, setCustomBatchValue] = useState('');
+  const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (user?.settings) {
@@ -45,10 +46,35 @@ export default function SettingsPage() {
     }
   }, [user]);
 
+  // 自动保存：设置变化后 debounce 500ms 自动提交
+  const autoSave = useCallback(async (newSettings: typeof settings, fieldName?: string) => {
+    setSaving(true);
+    try {
+      await api.updateSettings(newSettings);
+      await refreshUser();
+      setSavedField(fieldName || 'all');
+      setTimeout(() => setSavedField(null), 1500);
+    } catch (err) {
+      console.error('Auto save failed:', err);
+    }
+    setSaving(false);
+  }, [refreshUser]);
+
+  const updateSetting = useCallback((field: string, value: any) => {
+    setSettings(prev => {
+      const updated = { ...prev, [field]: value };
+      // 清除之前的定时器
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      // 500ms 后自动保存
+      saveTimerRef.current = setTimeout(() => autoSave(updated, field), 500);
+      return updated;
+    });
+  }, [autoSave]);
+
   const handleBatchSelect = (value: number) => {
     setUseCustomBatch(false);
     setCustomBatchValue('');
-    setSettings(s => ({ ...s, batchSize: value }));
+    updateSetting('batchSize', value);
   };
 
   const handleCustomBatchToggle = () => {
@@ -60,21 +86,8 @@ export default function SettingsPage() {
     setCustomBatchValue(value);
     const num = parseInt(value, 10);
     if (!isNaN(num) && num >= 1 && num <= 200) {
-      setSettings(s => ({ ...s, batchSize: num }));
+      updateSetting('batchSize', num);
     }
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await api.updateSettings(settings);
-      await refreshUser();
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } catch (err) {
-      console.error('Save failed:', err);
-    }
-    setSaving(false);
   };
 
   return (
@@ -85,13 +98,10 @@ export default function SettingsPage() {
           <Link href="/profile" className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">← 返回</Link>
           <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">⚙️ 学习设置</h2>
         </div>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="px-5 py-2 bg-blue-500 text-white rounded-xl text-sm font-medium hover:bg-blue-600 transition-colors disabled:opacity-50"
-        >
-          {saving ? '保存中...' : saved ? '✓ 已保存' : '保存设置'}
-        </button>
+        <div className="flex items-center gap-2">
+          {saving && <span className="text-xs text-blue-500 animate-pulse">保存中...</span>}
+          {savedField && !saving && <span className="text-xs text-green-500">✓ 已保存</span>}
+        </div>
       </div>
 
       {/* Learning Goals */}
@@ -106,7 +116,7 @@ export default function SettingsPage() {
             <input
               type="range" min="5" max="100" step="5"
               value={settings.dailyWordGoal}
-              onChange={(e) => setSettings(s => ({ ...s, dailyWordGoal: Number(e.target.value) }))}
+              onChange={(e) => updateSetting('dailyWordGoal', Number(e.target.value))}
               className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
             />
             <div className="flex justify-between text-xs text-slate-400 mt-1">
@@ -122,7 +132,7 @@ export default function SettingsPage() {
             <input
               type="range" min="10" max="120" step="5"
               value={settings.dailyTimeGoal}
-              onChange={(e) => setSettings(s => ({ ...s, dailyTimeGoal: Number(e.target.value) }))}
+              onChange={(e) => updateSetting('dailyTimeGoal', Number(e.target.value))}
               className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
             />
             <div className="flex justify-between text-xs text-slate-400 mt-1">
@@ -139,7 +149,7 @@ export default function SettingsPage() {
               {[3, 4, 5, 6, 7].map((d) => (
                 <button
                   key={d}
-                  onClick={() => setSettings(s => ({ ...s, weeklyDaysGoal: d }))}
+                  onClick={() => updateSetting('weeklyDaysGoal', d)}
                   className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
                     settings.weeklyDaysGoal === d
                       ? 'bg-blue-500 text-white'
@@ -154,12 +164,11 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Batch Size - 每段学习数量 */}
+      {/* Batch Size */}
       <div className="glass-card p-6">
         <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">📦 每段学习数量</h3>
         <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">设置每次学习时加载的单词数量，学完后可继续下一段</p>
         <div className="space-y-4">
-          {/* Preset options */}
           <div className="flex flex-wrap gap-2">
             {BATCH_SIZE_OPTIONS.map((n) => (
               <button
@@ -174,7 +183,6 @@ export default function SettingsPage() {
                 {n} 个
               </button>
             ))}
-            {/* Custom toggle button */}
             <button
               onClick={handleCustomBatchToggle}
               className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
@@ -187,9 +195,8 @@ export default function SettingsPage() {
             </button>
           </div>
 
-          {/* Custom input */}
           {useCustomBatch && (
-            <div className="flex items-center gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/30 animate-fadeIn">
+            <div className="flex items-center gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/30">
               <label className="text-sm text-slate-600 dark:text-slate-300 flex-shrink-0">自定义数量：</label>
               <input
                 type="number"
@@ -207,7 +214,6 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* Current selection hint */}
           <p className="text-xs text-slate-400 dark:text-slate-500">
             当前设置：每段学习 <span className="font-bold text-blue-600 dark:text-blue-400">{settings.batchSize}</span> 个单词
           </p>
@@ -224,7 +230,7 @@ export default function SettingsPage() {
           ].map((opt) => (
             <button
               key={opt.value}
-              onClick={() => setSettings(s => ({ ...s, pronunciation: opt.value }))}
+              onClick={() => updateSetting('pronunciation', opt.value)}
               className={`flex-1 p-4 rounded-xl border-2 text-left transition-all ${
                 settings.pronunciation === opt.value
                   ? 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20'
@@ -246,20 +252,20 @@ export default function SettingsPage() {
             <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">字体大小</label>
             <div className="flex gap-3">
               {[
-                { value: 'small', label: '小', sample: 'text-sm' },
-                { value: 'medium', label: '中', sample: 'text-base' },
-                { value: 'large', label: '大', sample: 'text-lg' },
+                { value: 'small', label: '小' },
+                { value: 'medium', label: '中' },
+                { value: 'large', label: '大' },
               ].map((opt) => (
                 <button
                   key={opt.value}
-                  onClick={() => setSettings(s => ({ ...s, fontSize: opt.value }))}
+                  onClick={() => updateSetting('fontSize', opt.value)}
                   className={`flex-1 py-3 rounded-xl border-2 text-center transition-all ${
                     settings.fontSize === opt.value
                       ? 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
                       : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
                   }`}
                 >
-                  <span className={opt.sample}>{opt.label}</span>
+                  {opt.label}
                 </button>
               ))}
             </div>
@@ -270,7 +276,7 @@ export default function SettingsPage() {
             <input
               type="time"
               value={settings.reminderTime}
-              onChange={(e) => setSettings(s => ({ ...s, reminderTime: e.target.value }))}
+              onChange={(e) => updateSetting('reminderTime', e.target.value)}
               className="px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             />
             <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">设置每日学习提醒时间</p>
