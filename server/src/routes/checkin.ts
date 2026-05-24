@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { prisma } from '../index';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { logger } from '../utils/logger';
 
 export const checkinRouter = Router();
 checkinRouter.use(authMiddleware);
@@ -9,8 +10,7 @@ checkinRouter.use(authMiddleware);
 checkinRouter.post('/', async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId!;
-    const { wordsLearned, wordsReviewed, timeSpent, correctRate }
-      = req.body;
+    const { wordsLearned, wordsReviewed, timeSpent, correctRate } = req.body;
     const todayStr = new Date().toISOString().split('T')[0];
 
     // Upsert today's checkin
@@ -64,7 +64,7 @@ checkinRouter.post('/', async (req: AuthRequest, res: Response) => {
 
     res.json(checkin);
   } catch (error) {
-    console.error('Checkin error:', error);
+    logger.error({ err: error }, 'Checkin error');
     res.status(500).json({ error: '打卡失败' });
   }
 });
