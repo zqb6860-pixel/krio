@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { prisma } from '../index';
 import { generateToken, generateRefreshToken, verifyRefreshToken } from '../middleware/auth';
+import { authLimiter, registerLimiter, smsLimiter } from '../middleware/rateLimit';
 
 export const authRouter = Router();
 
@@ -88,7 +89,7 @@ async function createNewUser(data: { email?: string; phone?: string; username: s
 
 
 // ===== POST /api/auth/register (Email) =====
-authRouter.post('/register', async (req: Request, res: Response) => {
+authRouter.post('/register', registerLimiter, async (req: Request, res: Response) => {
   try {
     const body = registerSchema.parse(req.body);
 
@@ -119,7 +120,7 @@ authRouter.post('/register', async (req: Request, res: Response) => {
 
 
 // ===== POST /api/auth/login (Email + Password) =====
-authRouter.post('/login', async (req: Request, res: Response) => {
+authRouter.post('/login', authLimiter, async (req: Request, res: Response) => {
   try {
     const body = loginSchema.parse(req.body);
 
@@ -152,7 +153,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 
 
 // ===== POST /api/auth/sms/send - 发送短信验证码 =====
-authRouter.post('/sms/send', async (req: Request, res: Response) => {
+authRouter.post('/sms/send', smsLimiter, async (req: Request, res: Response) => {
   try {
     const body = sendCodeSchema.parse(req.body);
 
@@ -258,7 +259,7 @@ authRouter.post('/sms/login', async (req: Request, res: Response) => {
 
 
 // ===== POST /api/auth/phone/register - 手机号注册 (带用户名) =====
-authRouter.post('/phone/register', async (req: Request, res: Response) => {
+authRouter.post('/phone/register', registerLimiter, async (req: Request, res: Response) => {
   try {
     const body = phoneRegisterSchema.parse(req.body);
 

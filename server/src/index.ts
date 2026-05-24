@@ -10,6 +10,7 @@ import { achievementRouter } from './routes/achievements';
 import { userRouter } from './routes/user';
 import { checkinRouter } from './routes/checkin';
 import { importRouter } from './routes/import';
+import { globalLimiter } from './middleware/rateLimit';
 
 export const prisma = new PrismaClient();
 
@@ -30,6 +31,7 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json({ limit: '1mb' }));
+app.use('/api', globalLimiter);
 
 // Health check
 app.get('/api/health', (_, res) => {
