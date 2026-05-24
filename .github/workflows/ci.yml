@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint check
+        run: npm run lint:check || true
+
+      - name: Format check
+        run: npm run format:check || true
+
+      - name: Run tests
+        run: npm test
+
+      - name: Generate Prisma client
+        run: cd server && npx prisma generate
+
+      - name: Build server
+        run: cd server && npm run build
+
+      - name: Build web
+        run: cd app/lightwords-web && npm run build
