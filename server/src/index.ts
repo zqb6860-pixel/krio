@@ -13,6 +13,9 @@ import { achievementRouter } from './routes/achievements';
 import { userRouter } from './routes/user';
 import { checkinRouter } from './routes/checkin';
 import { importRouter } from './routes/import';
+import { typingRouter } from './routes/typing';
+import { wordFamilyRouter } from './routes/wordFamily';
+import { listeningRouter } from './routes/listening';
 
 export const prisma = new PrismaClient();
 validateEnv();
@@ -74,6 +77,9 @@ app.use('/api/levels', levelRouter);
 app.use('/api/achievements', achievementRouter);
 app.use('/api/checkin', checkinRouter);
 app.use('/api/import', importRouter);
+app.use('/api/typing', typingRouter);
+app.use('/api/word-family', wordFamilyRouter);
+app.use('/api/listening', listeningRouter);
 
 // Error handler
 app.use((err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {

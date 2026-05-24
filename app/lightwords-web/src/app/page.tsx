@@ -60,10 +60,13 @@ export default function DashboardPage() {
       {/* Quick Actions */}
       <div className="glass-card p-6">
         <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-4">⚡ 快速开始</h3>
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-4 md:grid-cols-7 gap-3">
           <QuickAction href="/learn" icon="📚" label="学新词" gradient="from-blue-500 to-indigo-500" />
           <QuickAction href="/review" icon="🔄" label="去复习" gradient="from-orange-400 to-rose-500" badge={stats?.pendingReview || 0} />
+          <QuickAction href="/typing" icon="⌨️" label="打字练" gradient="from-cyan-500 to-blue-600" />
           <QuickAction href="/spelling" icon="✍️" label="练拼写" gradient="from-emerald-400 to-teal-500" />
+          <QuickAction href="/listening" icon="🎧" label="听力" gradient="from-violet-500 to-purple-600" />
+          <QuickAction href="/word-family" icon="🌳" label="词根" gradient="from-green-500 to-emerald-600" />
           <QuickAction href="/challenge" icon="🎮" label="闯关" gradient="from-purple-500 to-fuchsia-500" />
         </div>
       </div>

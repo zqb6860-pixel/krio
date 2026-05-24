@@ -166,6 +166,36 @@ class ApiClient {
   // Achievements
   getAchievements() { return this.request<any[]>('/achievements'); }
   checkAchievements() { return this.request<any>('/achievements/check', { method: 'POST' }); }
+
+  // Typing (Qwerty Learner style)
+  recordTypingSession(data: {
+    bookId?: string; mode?: string; wordsTyped: number; correctWords: number;
+    totalChars: number; correctChars: number; wpm: number; accuracy: number;
+    maxCombo: number; duration: number; chapterIndex?: number;
+  }) {
+    return this.request<any>('/typing/session', { method: 'POST', body: JSON.stringify(data) });
+  }
+  getTypingStats() { return this.request<any>('/typing/stats'); }
+  getChapterWords(bookId: string, chapter = 0, size = 20) {
+    return this.request<any>(`/typing/chapter-words?bookId=${bookId}&chapter=${chapter}&size=${size}`);
+  }
+  getTypingLeaderboard(period = 'weekly') { return this.request<any[]>(`/typing/leaderboard?period=${period}`); }
+
+  // Word Family (不背单词 style 派生树)
+  getWordFamily(word: string) { return this.request<any>(`/word-family/${word}`); }
+  getWordsByRoot(root: string) { return this.request<any>(`/word-family/root/${root}`); }
+  getPopularRoots() { return this.request<any[]>('/word-family/explore/roots'); }
+
+  // Listening
+  getListeningExercises(mode = 'word', bookId?: string, limit = 10) {
+    const params = new URLSearchParams({ mode, limit: String(limit) });
+    if (bookId) params.set('bookId', bookId);
+    return this.request<any>(`/listening/words?${params.toString()}`);
+  }
+  recordListeningSession(data: { mode: string; totalItems: number; correctItems: number; duration: number }) {
+    return this.request<any>('/listening/session', { method: 'POST', body: JSON.stringify(data) });
+  }
+  getListeningStats() { return this.request<any>('/listening/stats'); }
 }
 
 export const api = new ApiClient();
