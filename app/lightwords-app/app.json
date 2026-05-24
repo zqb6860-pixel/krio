@@ -28,6 +28,9 @@
       "favicon": "./assets/icon.png"
     },
     "scheme": "lightwords",
+    "extra": {
+      "apiUrl": "http://localhost:3001/api"
+    },
     "plugins": ["expo-router"]
   }
 }

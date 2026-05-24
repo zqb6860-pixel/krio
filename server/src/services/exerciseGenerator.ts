@@ -3,9 +3,7 @@
  * 从真实词库数据自动生成闯关题目
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '../index';
 
 interface GeneratedExercise {
   type: string;
@@ -66,7 +64,12 @@ export async function generateExercises(count: number = 5): Promise<GeneratedExe
   return exercises;
 }
 
-function getDistractors(allWords: any[], excludeId: string, field: 'translation' | 'word', count: number): string[] {
+function getDistractors(
+  allWords: any[],
+  excludeId: string,
+  field: 'translation' | 'word',
+  count: number
+): string[] {
   const others = allWords.filter((w) => w.id !== excludeId);
   const shuffled = shuffleArray(others);
   const result: string[] = [];
@@ -76,7 +79,8 @@ function getDistractors(allWords: any[], excludeId: string, field: 'translation'
     if (value && !result.includes(value)) result.push(value);
   }
   while (result.length < count) {
-    const fallbacks = field === 'translation' ? ['未知含义', '其他意思', '无此释义'] : ['unknown', 'other', 'none'];
+    const fallbacks =
+      field === 'translation' ? ['未知含义', '其他意思', '无此释义'] : ['unknown', 'other', 'none'];
     result.push(fallbacks[result.length % 3]);
   }
   return result;

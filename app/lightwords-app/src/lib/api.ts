@@ -1,8 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
-const API_BASE = 'http://10.0.2.2:3001/api'; // Android emulator → localhost
-// const API_BASE = 'http://localhost:3001/api'; // iOS simulator
-// 真机调试时改为电脑局域网 IP，如 'http://192.168.1.100:3001/api'
+const API_BASE =
+  (Constants.expoConfig?.extra?.apiUrl as string) ||
+  process.env.EXPO_PUBLIC_API_URL ||
+  'http://10.0.2.2:3001/api';
 
 class ApiClient {
   private token: string | null = null;
