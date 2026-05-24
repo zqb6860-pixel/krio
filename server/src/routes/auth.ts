@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { prisma } from '../index';
-import { generateToken, generateRefreshToken } from '../middleware/auth';
+import { generateToken, generateRefreshToken, verifyRefreshToken } from '../middleware/auth';
 
 export const authRouter = Router();
 
@@ -443,14 +443,7 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Missing refresh token' });
     }
 
-    const jwt = await import('jsonwebtoken');
-    const secret = process.env.JWT_SECRET || 'lightwords-secret-key-change-in-production';
-    const payload = jwt.default.verify(refreshToken, secret) as { userId: string; type?: string };
-
-    if (payload.type !== 'refresh') {
-      return res.status(401).json({ error: 'Invalid token type' });
-    }
-
+    const payload = verifyRefreshToken(refreshToken);
     const newToken = generateToken(payload.userId);
     res.json({ token: newToken });
   } catch {
