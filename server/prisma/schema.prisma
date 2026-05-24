@@ -58,6 +58,7 @@ model UserSettings {
   dailyWordGoal   Int     @default(30)
   dailyTimeGoal   Int     @default(30)
   weeklyDaysGoal  Int     @default(5)
+  batchSize       Int     @default(10)
   pronunciation   String  @default("us")
   theme           String  @default("light")
   fontSize        String  @default("medium")
